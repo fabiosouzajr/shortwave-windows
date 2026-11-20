@@ -16,11 +16,92 @@
 
 //! Windows platform integration.
 
+use std::env;
+use std::path::PathBuf;
+use std::sync::LazyLock;
+
 use anyhow::Result;
 use gtk::prelude::*;
-use gtk::{gdk, gio};
+use gtk::{gdk, gio, glib};
 
 use crate::app::SwApplication;
+use crate::config;
+
+/// `<prefix>\share` of the running installation, i.e. `..\share` relative to
+/// `bin\shortwave.exe`, if it contains our GResource bundle. Falls back to the
+/// build-time `DATADIR` (development runs from a Meson install prefix).
+static DATADIR: LazyLock<PathBuf> = LazyLock::new(|| {
+    let relocated = env::current_exe().ok().and_then(|exe| {
+        let share = exe.parent()?.parent()?.join("share");
+        let gresource = share
+            .join(config::PKGNAME)
+            .join(format!("{}.gresource", config::APP_ID));
+        gresource.is_file().then_some(share)
+    });
+
+    match relocated {
+        Some(share) => share,
+        None => {
+            warn!(
+                "No data directory next to the executable, using build-time path {}",
+                config::DATADIR
+            );
+            PathBuf::from(config::DATADIR)
+        }
+    }
+});
+
+/// Early process setup, before GTK is initialised.
+pub fn init() {
+    // Make our compiled GSettings schema visible. GLib also searches
+    // `<dir of libgio>\..\share`, which covers the bundled layout, but not a
+    // development prefix. `gio::Settings::new()` aborts if the schema is
+    // missing, so this has to happen before anything touches settings.
+    if env::var_os("GSETTINGS_SCHEMA_DIR").is_none() {
+        let schemas = datadir().join("glib-2.0").join("schemas");
+        if schemas.join("gschemas.compiled").is_file() {
+            debug!("Using GSettings schemas from {}", schemas.display());
+            env::set_var("GSETTINGS_SCHEMA_DIR", &schemas);
+        }
+    }
+}
+
+/// Setup that needs an initialised GTK display.
+pub fn init_gtk() {
+    // The app icon is looked up by name (APP_ID) in the hicolor theme.
+    if let Some(display) = gdk::Display::default() {
+        gtk::IconTheme::for_display(&display).add_search_path(datadir().join("icons"));
+    }
+}
+
+/// Installed data directory (GResource, schemas, icons).
+pub fn datadir() -> PathBuf {
+    DATADIR.clone()
+}
+
+/// Installed translations.
+pub fn localedir() -> PathBuf {
+    datadir().join("locale")
+}
+
+/// Cache directory: `%LOCALAPPDATA%\Shortwave\cache`.
+///
+/// GLib's `user_cache_dir()` on Windows is the browser cache
+/// (`INetCache`), which Disk Cleanup may wipe.
+pub fn cache_dir() -> PathBuf {
+    let mut path = glib::user_data_dir();
+    path.push(config::NAME);
+    path.push("cache");
+    path
+}
+
+/// Default for the `recording-track-directory` setting: `<Music>\Shortwave`.
+pub fn default_recording_dir() -> PathBuf {
+    let mut path = glib::user_special_dir(glib::UserDirectory::Music)
+        .unwrap_or_else(|| glib::home_dir().join("Music"));
+    path.push(config::NAME);
+    path
+}
 
 /// Starts the System Media Transport Controls integration.
 // TODO(win): SMTC (Phase 4, workstream 7).

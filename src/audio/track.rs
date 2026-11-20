@@ -186,6 +186,11 @@ impl SwTrack {
         let filename = sanitize_filename::sanitize(self.title()) + ".ogg";
 
         let mut path = PathBuf::from(directory);
+
+        // The Windows default (`Music\Shortwave`) may not exist yet.
+        #[cfg(windows)]
+        fs::create_dir_all(&path).map_err(Rc::new)?;
+
         path.push(filename);
 
         fs::copy(self.file().path().unwrap(), &path).map_err(Rc::new)?;

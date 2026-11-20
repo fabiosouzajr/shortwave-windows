@@ -156,8 +156,7 @@ mod imp {
             if settings_manager::string(Key::RecordingTrackDirectory).is_empty() {
                 settings_manager::set_string(
                     Key::RecordingTrackDirectory,
-                    glib::user_special_dir(glib::UserDirectory::Music)
-                        .unwrap_or(glib::home_dir())
+                    platform::default_recording_dir()
                         .as_os_str()
                         .to_str()
                         .unwrap()

@@ -20,6 +20,7 @@
 //! `utils.rs`, `audio/player.rs` and `api/cover_loader.rs`.
 
 use std::cell::OnceCell;
+use std::path::PathBuf;
 use std::rc::Rc;
 
 use anyhow::Result;
@@ -30,8 +31,37 @@ use gtk::{gdk, gio, glib};
 
 use crate::app::SwApplication;
 use crate::audio::{MprisServer, SwPlaybackState};
+use crate::config;
 use crate::i18n::{i18n, i18n_f};
 use crate::utils;
+
+/// Early process setup, before GTK is initialised.
+pub fn init() {}
+
+/// Setup that needs an initialised GTK display.
+pub fn init_gtk() {}
+
+/// Installed data directory (GResource, schemas, icons): fixed at build time.
+pub fn datadir() -> PathBuf {
+    PathBuf::from(config::DATADIR)
+}
+
+/// Installed translations: fixed at build time.
+pub fn localedir() -> PathBuf {
+    PathBuf::from(config::LOCALEDIR)
+}
+
+/// Cache directory (cover cache).
+pub fn cache_dir() -> PathBuf {
+    let mut path = glib::user_cache_dir();
+    path.push(config::NAME);
+    path
+}
+
+/// Default for the `recording-track-directory` setting.
+pub fn default_recording_dir() -> PathBuf {
+    glib::user_special_dir(glib::UserDirectory::Music).unwrap_or(glib::home_dir())
+}
 
 /// Starts the MPRIS media controls on the session bus.
 pub async fn start_media_controls() -> Result<()> {

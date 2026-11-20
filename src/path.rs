@@ -20,7 +20,7 @@ use std::sync::LazyLock;
 
 use gtk::glib;
 
-use crate::config;
+use crate::{config, platform};
 
 pub static DATA: LazyLock<PathBuf> = LazyLock::new(|| {
     let mut path = glib::user_data_dir();
@@ -28,11 +28,7 @@ pub static DATA: LazyLock<PathBuf> = LazyLock::new(|| {
     path
 });
 
-pub static CACHE: LazyLock<PathBuf> = LazyLock::new(|| {
-    let mut path = glib::user_cache_dir();
-    path.push(config::NAME);
-    path
-});
+pub static CACHE: LazyLock<PathBuf> = LazyLock::new(platform::cache_dir);
 
 pub fn init() -> std::io::Result<()> {
     fs::create_dir_all(DATA.to_owned())?;

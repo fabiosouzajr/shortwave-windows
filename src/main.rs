@@ -34,11 +34,13 @@ mod utils;
 
 mod app;
 #[rustfmt::skip]
+#[cfg_attr(windows, allow(dead_code))] // LOCALEDIR is resolved at runtime on Windows
 mod config;
 mod i18n;
 mod path;
 mod platform;
 
+#[cfg(not(windows))]
 use std::env;
 
 use gettextrs::*;
@@ -50,11 +52,15 @@ fn main() -> glib::ExitCode {
     // Initialize logger
     pretty_env_logger::init();
 
+    // Platform specific process setup (e.g. schema / resource lookup)
+    platform::init();
+
     // Initialize paths
     path::init().expect("Unable to create paths.");
 
     // Initialize GTK
     gtk::init().unwrap_or_else(|_| panic!("Failed to initialize GTK."));
+    platform::init_gtk();
 
     // Initialize Gstreamer
     gstreamer::init().expect("Failed to initialize Gstreamer");
@@ -62,12 +68,15 @@ fn main() -> glib::ExitCode {
     // Initialize variables
     glib::set_application_name(config::NAME);
     gtk::Window::set_default_icon_name(config::APP_ID);
-    env::set_var("PULSE_PROP_application.icon_name", config::APP_ID);
-    env::set_var("PULSE_PROP_application.metadata().name", config::NAME);
+    #[cfg(not(windows))]
+    {
+        env::set_var("PULSE_PROP_application.icon_name", config::APP_ID);
+        env::set_var("PULSE_PROP_application.metadata().name", config::NAME);
+    }
 
     // Setup translations
     setlocale(LocaleCategory::LcAll, "");
-    bindtextdomain(config::PKGNAME, config::LOCALEDIR).unwrap();
+    bindtextdomain(config::PKGNAME, platform::localedir()).unwrap();
     // libintl on Windows returns translations in the ANSI code page (e.g.
     // CP1252) unless told otherwise; gettext-rs and GTK require UTF-8.
     #[cfg(windows)]
@@ -75,12 +84,9 @@ fn main() -> glib::ExitCode {
     textdomain(config::PKGNAME).unwrap();
 
     // Load app resources
-    let path = &format!(
-        "{}/{}/{}.gresource",
-        config::DATADIR,
-        config::PKGNAME,
-        config::APP_ID
-    );
+    let path = platform::datadir()
+        .join(config::PKGNAME)
+        .join(format!("{}.gresource", config::APP_ID));
     let res = gio::Resource::load(path).expect("Could not load resources");
     gio::resources_register(&res);
 
