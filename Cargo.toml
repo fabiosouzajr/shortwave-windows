@@ -57,6 +57,8 @@ mpris-server = "0.8"
 [target.'cfg(windows)'.dependencies]
 souvlaki = { version = "0.9", default-features = false }
 tray-icon = { version = "0.26", default-features = false }
+# Toast notifications and the process AppUserModelID (same version as souvlaki's)
+windows = { version = "0.62", features = ["Foundation", "Data_Xml_Dom", "UI_Notifications", "Win32_UI_Shell"] }
 
 # Icon, version information and manifest (see build.rs)
 [target.'cfg(windows)'.build-dependencies]

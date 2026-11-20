@@ -294,7 +294,9 @@ mod imp {
             self.obj().notify_has_playing_track();
 
             // Show desktop notification
-            if settings_manager::boolean(Key::Notifications) {
+            if settings_manager::boolean(Key::Notifications)
+                && !platform::show_track_notification(&track, self.obj().recording_mode())
+            {
                 let id = format!("{}.TrackNotification", config::APP_ID);
                 SwApplication::default()
                     .send_notification(Some(&id), &self.track_notification(&track));

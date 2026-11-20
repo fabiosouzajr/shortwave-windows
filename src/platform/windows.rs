@@ -59,6 +59,8 @@ fn install_prefix() -> Option<PathBuf> {
 
 /// Early process setup, before GTK is initialised.
 pub fn init() {
+    toast::set_app_user_model_id();
+
     // GIO's TLS backends (used by GStreamer's souphttpsrc for https:// and HLS
     // streams, and by libshumate for map tiles) only see the roots already in
     // the Windows certificate store, which Windows fills lazily. Point them at
@@ -199,6 +201,18 @@ pub async fn background_permissions() -> bool {
 
 #[path = "windows/tray.rs"]
 mod tray;
+
+#[path = "windows/toast.rs"]
+mod toast;
+
+/// Shows a track notification with platform means. Returns false if the
+/// caller should send upstream's GNotification instead.
+pub fn show_track_notification(
+    track: &crate::audio::SwTrack,
+    mode: crate::audio::SwRecordingMode,
+) -> bool {
+    toast::show_track(track, mode)
+}
 
 /// Background playback integration: a tray icon to get back to the app.
 #[derive(Default)]

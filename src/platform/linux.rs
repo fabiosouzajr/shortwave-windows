@@ -174,6 +174,14 @@ fn update_background_portal_status(
     });
 }
 
+/// Track notifications use upstream's GNotification on this platform.
+pub fn show_track_notification(
+    _track: &crate::audio::SwTrack,
+    _mode: crate::audio::SwRecordingMode,
+) -> bool {
+    false
+}
+
 /// Decodes a downloaded station cover with glycin (sandboxed loaders).
 pub async fn load_texture(file: &gio::File) -> Result<gdk::Texture> {
     let loader = Loader::new(file.clone());
