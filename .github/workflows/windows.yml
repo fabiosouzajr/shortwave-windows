@@ -79,8 +79,10 @@ jobs:
   linux:
     name: Linux (upstream build)
     runs-on: ubuntu-latest
-    # Fedora has the GTK 4 / libadwaita 1.7+ versions upstream needs
-    container: fedora:latest
+    # Fedora 42 (GNOME 48): GTK 4.18 / libadwaita 1.7 as upstream needs, and
+    # OpenSSL 3. Newer Fedora ships OpenSSL 4, which the openssl-sys 0.9.108
+    # in upstream's Cargo.lock rejects (not a port issue).
+    container: fedora:42
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
