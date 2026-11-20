@@ -7,10 +7,15 @@ project('shortwave', 'rust',
 gnome = import('gnome')
 i18n = import('i18n')
 
+is_windows = host_machine.system() == 'windows'
+
 # Dependencies
 dependency('sqlite3', version: '>= 3.20')
-dependency('openssl', version: '>= 1.0')
-dependency('dbus-1')
+if not is_windows
+  # On Windows, TLS uses SChannel and there is no D-Bus session bus
+  dependency('openssl', version: '>= 1.0')
+  dependency('dbus-1')
+endif
 
 dependency('glib-2.0', version: '>= 2.66')
 dependency('gio-2.0', version: '>= 2.66')
@@ -18,9 +23,11 @@ dependency('gtk4', version: '>= 4.16')
 dependency('libadwaita-1', version: '>= 1.7')
 dependency('shumate-1.0', version: '>= 1.3')
 
-# Required by glycin crate
-dependency('lcms2', version: '>= 2.12.0')
-dependency('libseccomp', version: '>= 2.5.0')
+# Required by glycin crate (not used on Windows)
+if not is_windows
+  dependency('lcms2', version: '>= 2.12.0')
+  dependency('libseccomp', version: '>= 2.5.0')
+endif
 
 dependency('gstreamer-1.0', version: '>= 1.16')
 dependency('gstreamer-base-1.0', version: '>= 1.16')

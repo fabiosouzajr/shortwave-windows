@@ -1,30 +1,32 @@
 # Icons #
 subdir('icons')
 
-# Desktop file
-conf = configuration_data()
-conf.set('APP_ID', app_id)
-conf.set('PKGNAME', meson.project_name())
-conf.set('NAME', name)
-desktop_file = i18n.merge_file(
-  input: configure_file(
-    input: '@0@.desktop.in.in'.format(base_id),
-    output: '@0@.desktop.in'.format(app_id),
-    configuration: conf
-  ),
-  output: '@0@.desktop'.format(app_id),
-  type: 'desktop',
-  po_dir: '../po',
-  install: true,
-  install_dir: join_paths(datadir, 'applications')
-)
-
-# Validate desktop file
-desktop_utils = find_program('desktop-file-validate', required: false)
-if desktop_utils.found()
-  test('Validate desktop file', desktop_utils,
-    args: [desktop_file]
+# Desktop file (freedesktop only; Windows uses a Start Menu shortcut)
+if not is_windows
+  conf = configuration_data()
+  conf.set('APP_ID', app_id)
+  conf.set('PKGNAME', meson.project_name())
+  conf.set('NAME', name)
+  desktop_file = i18n.merge_file(
+    input: configure_file(
+      input: '@0@.desktop.in.in'.format(base_id),
+      output: '@0@.desktop.in'.format(app_id),
+      configuration: conf
+    ),
+    output: '@0@.desktop'.format(app_id),
+    type: 'desktop',
+    po_dir: '../po',
+    install: true,
+    install_dir: join_paths(datadir, 'applications')
   )
+
+  # Validate desktop file
+  desktop_utils = find_program('desktop-file-validate', required: false)
+  if desktop_utils.found()
+    test('Validate desktop file', desktop_utils,
+      args: [desktop_file]
+    )
+  endif
 endif
 
 # Appdata
@@ -40,7 +42,9 @@ appdata_file = i18n.merge_file(
   ),
   output: '@0@.metainfo.xml'.format(app_id),
   po_dir: '../po',
-  install: true,
+  # Always generated (it's bundled into the GResource for the About dialog),
+  # but only installed where AppStream exists.
+  install: not is_windows,
   install_dir: join_paths(datadir, 'metainfo')
 )
 
@@ -79,17 +83,19 @@ if glib_compile_schemas.found()
   )
 endif
 
-# DBus service
-conf = configuration_data()
-conf.set('APP_ID', app_id)
-conf.set('PKGNAME', meson.project_name())
-conf.set('BINDIR', bindir)
-configure_file(
-  input: '@0@.service.in'.format(base_id),
-  output: '@0@.service'.format(app_id),
-  configuration: conf,
-  install_dir: join_paths(datadir,'dbus-1', 'services')
-)
+# DBus service (no D-Bus activation on Windows)
+if not is_windows
+  conf = configuration_data()
+  conf.set('APP_ID', app_id)
+  conf.set('PKGNAME', meson.project_name())
+  conf.set('BINDIR', bindir)
+  configure_file(
+    input: '@0@.service.in'.format(base_id),
+    output: '@0@.service'.format(app_id),
+    configuration: conf,
+    install_dir: join_paths(datadir,'dbus-1', 'services')
+  )
+endif
 
 # Resources
 conf = configuration_data()
@@ -114,5 +120,5 @@ gnome.compile_resources(
 gnome.post_install(
   gtk_update_icon_cache: true,
   glib_compile_schemas: true,
-  update_desktop_database: true,
+  update_desktop_database: not is_windows,
 )
