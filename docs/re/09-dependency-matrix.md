@@ -51,15 +51,27 @@ Evidence (all collected 2026-11-20 on Windows 11 Pro, MSYS2 UCRT64):
 | `libadwaita` (`adw`) | 0.7 (`v1_7`) | ✅ | `libadwaita-sys` OK against 1.10.0 |
 | `gtk4` (`gtk`) | 0.9 (`gnome_46`) | ✅ | `gtk4-sys` OK against 4.24.1 |
 
-### New crates the port will add (to verify in Phase 4)
+### Crates added by the port (Phase 4 outcome)
 
-| Crate | Purpose | Target gate |
+| Crate | Version | Purpose | Gate | Status |
+|---|---|---|---|---|
+| `souvlaki` | 0.9.3, `default-features = false` | SMTC media controls | `cfg(windows)` | ✅ in use, verified via `GlobalSystemMediaTransportControlsSessionManager` |
+| `tray-icon` | 0.26.1, `default-features = false` | notification-area icon + menu (muda) | `cfg(windows)` | ✅ in use, verified by hand |
+| `winresource` | 0.1.34 | icon, version info, manifest | `[target.'cfg(windows)'.build-dependencies]` | ✅ in use (`build.rs`) |
+| `gdk4-win32` | 0.9.5 | HWND of the GTK window | — | ❌ **rejected**: release link fails with `undefined reference to gdk_win32_display_get_win32hcursor` (removed from GTK 4.24). `gdk_win32_surface_get_handle` is declared directly instead. |
+| `windows` | — | toasts / power requests / named mutex | — | not needed yet: GLib gives single instance (gdbus autolaunch), GTK 4.24 imports `PowerCreateRequest`; toasts are still open (see PORTING.md) |
+
+Gating changed from the prompt's `cfg(target_os = "linux")` to
+`cfg(not(windows))`, so FreeBSD and other non-Windows builds keep upstream's
+behaviour too.
+
+### Runtime data added to the bundle
+
+| Item | Source | Why |
 |---|---|---|
-| `souvlaki` (or `windows` with `Media_*` features) | SMTC media controls | `cfg(windows)` |
-| `gdk4-win32` | HWND of the GTK window (`GdkWin32Surface`) | `cfg(windows)` |
-| `tray-icon` (or `windows` `Shell_NotifyIcon`) | tray icon for background playback | `cfg(windows)` |
-| `windows` | toasts / `SetThreadExecutionState` / named mutex if GLib's built-ins aren't enough | `cfg(windows)` |
-| `winresource` or `embed-resource` | icon, version info, manifest | `[target.'cfg(windows)'.build-dependencies]` |
+| `etc\ssl\certs\ca-bundle.crt` | `mingw-w64-ucrt-x86_64-ca-certificates` | GIO TLS (GStreamer `souphttpsrc`, libshumate tiles) only sees roots already in the Windows store; without it `https://`/HLS streams can fail with *Unacceptable TLS certificate* |
+| `bin\gdbus.exe` | `glib2` | autolaunched private session bus for GApplication single-instance |
+| GIO modules (`lib\gio\modules\libgiognutls.dll` …) | `glib-networking` | TLS backend for GIO |
 
 ## `cargo tree` highlights
 

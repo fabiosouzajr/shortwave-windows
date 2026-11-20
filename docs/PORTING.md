@@ -219,3 +219,28 @@ with a build, a smoke test, a commit and a push.
    to keep the Linux code identical to upstream.
 5. Future merges come from GNOME upstream (`gnome` remote) as well as Mauna
    (`upstream`), because Mauna's tree tracks GNOME main.
+
+## Phase 4 outcome: changes against this plan
+
+| Area | Plan | What was done, and why |
+|---|---|---|
+| Gating | `cfg(target_os = "linux")` | `cfg(not(windows))`: every non-Windows target (e.g. FreeBSD) keeps upstream's code |
+| HWND | `gdk4-win32` crate | declared `gdk_win32_surface_get_handle` directly: `gdk4-win32` 0.9 doesn't link against GTK 4.24 |
+| Tray | always while `background-playback` is on | as planned; closing the window keeps upstream semantics (hide/close only while playing; otherwise the app quits) |
+| Notifications | GNotification, toasts if needed | GNotification works (text only); GLib's Win32 backend has **no actions**, so *Save Track* / *Don't Record* buttons are missing. Toasts need the installer's AppUserModelID shortcut → **open item for Phase 5** |
+| Single instance | GApplication, named mutex if needed | GApplication works (GLib autolaunches `gdbus.exe`); no extra code |
+| Suspend inhibit | `SetThreadExecutionState` fallback | not needed: GTK 4.24 imports `PowerCreateRequest`/`PowerSetRequest` |
+| Recording | unchanged branch | added `audioconvert` to the recorder bin on **all** platforms: wasapi2sink pins the tee's caps (S16LE) once running and the F32-only `vorbisenc` branch failed with *not-negotiated*; on Linux the element is a pass-through |
+| Recording names | MAX_PATH truncation | also a `Track` fallback when sanitizing leaves nothing (e.g. `CON`) |
+| Covers | `gdk::Texture::from_bytes` | plus extraction of PNG images embedded in ICO files (gdk-pixbuf rejects them) |
+| TLS | CA bundle for map tiles (to verify) | needed for **streams** too: ship MSYS2's `ca-bundle.crt`, set `SSL_CERT_FILE` at start-up |
+| Text encoding | — | `bind_textdomain_codeset("UTF-8")` on Windows + UTF-8 active code page in the manifest: libintl returned CP1252 and gettext-rs panicked |
+
+## Known upstream issues seen during the port (not changed, same on Linux)
+
+- `SwTrack::save()` copies the temporary recording before the encoder is
+  flushed (EOS), so saved files lack the last few seconds (60 s recorded →
+  55.9 s file).
+- `SwPlayer::restore_state()` captures a freshly created station `#[weak]`; if
+  the last station isn't in the library it is dropped and not restored.
+- `style-dark.css` is reported as deprecated by libadwaita 1.10.
