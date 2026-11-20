@@ -87,3 +87,24 @@ TLS is **SChannel** and no OpenSSL is needed. SChannel supports
 | Port 5353 shared with Windows' own mDNS (Dnscache) | `mdns-sd` binds with `SO_REUSEADDR`, which on Windows allows sharing | Verify in Phase 4/9 on the real device |
 | Multiple interfaces (Hyper-V, WSL, VPN adapters) | mdns-sd queries all of them; the first address in `ServiceResolved` may belong to a virtual adapter's subnet | Low; verify, prefer an address on the same subnet as a local interface if needed |
 | Outbound TCP 8009 | Normally allowed by default policy | — |
+
+## Windows verification (Phase 4, workstream 9)
+
+No real Cast device was available. What was checked on Windows 11 (Hyper-V
+and WSL adapters present):
+
+- **Firewall:** the first runs of `shortwave.exe` triggered the Windows
+  Firewall prompt, which created inbound *Allow* rules for the exe (seen with
+  `Get-NetFirewallApplicationFilter`). Without them, mDNS replies are dropped →
+  the installer must add the rule.
+- **Discovery:** a scratch program using the same `mdns-sd 0.13.9` advertised
+  `_googlecast._tcp.local.` (`fn=Test Cast Device`, `md=Fake Chromecast`) from
+  this machine's LAN address. Shortwave's device dialog listed
+  *Test Cast Device / Fake Chromecast*: multicast send/receive and sharing
+  UDP 5353 with Windows' own mDNS work, and TXT records parse.
+- **Connection error path:** selecting the fake device (nothing listening on
+  8009) shows the toast *Unable to connect with device … (os error 10061)*; the
+  app keeps running.
+- **Not tested:** the TLS handshake with a real receiver (SChannel with
+  `danger_accept_invalid_certs`), launching the custom receiver app
+  `E3F31F9F`, media `LOAD`, volume sync and hand-back to local playback.
