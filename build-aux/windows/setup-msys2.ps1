@@ -82,7 +82,9 @@ function Invoke-Msys([string]$Command) {
 
 if (-not $SkipUpdate) {
     Write-Host '==> Updating MSYS2 (pacman -Syu). Run it twice: the first pass may only update the core.'
-    Invoke-Msys 'pacman -Syu --noconfirm'
+    # A core update may terminate the shell with a non-zero exit code; the
+    # second pass finishes the job and must succeed.
+    try { Invoke-Msys 'pacman -Syu --noconfirm' } catch { Write-Warning "First update pass: $_" }
     Invoke-Msys 'pacman -Syu --noconfirm'
 }
 

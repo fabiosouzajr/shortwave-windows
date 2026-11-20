@@ -1,0 +1,115 @@
+# Shortwave - Windows port CI
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# No scheduled runs: this repository is private and Actions minutes count
+# (Windows runners at 2x). Ask before adding a `schedule:` trigger.
+
+name: CI
+
+on:
+  push:
+    branches: [windows-port, main]
+    paths-ignore: ['docs/**', '**.md']
+  pull_request:
+    paths-ignore: ['docs/**', '**.md']
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    name: Windows (MSYS2 UCRT64)
+    runs-on: windows-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      # The runner image ships MSYS2 in C:\msys64; setup-msys2.ps1 updates it
+      # and installs the same packages a developer machine uses.
+      - name: Install MSYS2 packages
+        run: ./build-aux/windows/setup-msys2.ps1
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            _build/cargo-home/registry
+            _build/cargo-home/git
+            _build/target
+            target
+          key: windows-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: windows-cargo-
+
+      - name: Build (Meson, release)
+        run: ./build-aux/windows/build.ps1
+
+      # CARGO_HOME must not be the runner's ~/.cargo: cargo looks up
+      # subcommands there first and would run rustup's MSVC cargo-clippy.
+      - name: Clippy and tests
+        run: |
+          $env:MSYSTEM = 'UCRT64'; $env:CHERE_INVOKING = '1'
+          C:\msys64\usr\bin\bash.exe -lc 'export CARGO_HOME=$PWD/_build/cargo-home; cargo clippy --locked && cargo test --locked'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Install Inno Setup
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup --no-progress -y
+          }
+
+      - name: Bundle and installer
+        run: |
+          ./build-aux/windows/bundle.ps1 -SkipBuild
+          ./build-aux/windows/installer.ps1
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: shortwave-windows-x64
+          path: |
+            dist/*.zip
+            dist/*-setup.exe
+          if-no-files-found: error
+
+  linux:
+    name: Linux (upstream build)
+    runs-on: ubuntu-latest
+    # Fedora has the GTK 4 / libadwaita 1.7+ versions upstream needs
+    container: fedora:latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: >
+          dnf install -y --setopt=install_weak_deps=False
+          git gcc meson ninja-build cargo rust clippy pkgconf-pkg-config
+          gettext desktop-file-utils appstream glib2-devel
+          gtk4-devel libadwaita-devel libshumate-devel sqlite-devel
+          openssl-devel dbus-devel lcms2-devel libseccomp-devel
+          gstreamer1-devel gstreamer1-plugins-base-devel gstreamer1-plugins-bad-free-devel
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            _build/cargo-home/registry
+            _build/cargo-home/git
+            _build/target
+            target
+          key: linux-cargo-${{ hashFiles('Cargo.lock') }}
+          restore-keys: linux-cargo-
+
+      - name: Build (Meson)
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          meson setup _build
+          meson compile -C _build
+
+      - name: Clippy and tests
+        run: cargo clippy --locked && cargo test --locked

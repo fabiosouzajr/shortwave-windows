@@ -53,6 +53,23 @@ meson compile -C _build
 meson install -C _build
 ```
 
+To run clippy or the tests by hand, use MSYS2's cargo **and** a `CARGO_HOME`
+other than `%USERPROFILE%\.cargo`. Cargo looks up subcommands such as
+`cargo-clippy` in `$CARGO_HOME/bin` first, so with rustup installed it would
+run the MSVC toolchain's clippy instead:
+
+```sh
+export CARGO_HOME=$PWD/_build/cargo-home
+cargo clippy --locked && cargo test --locked
+```
+
+## Packaging
+
+```powershell
+.\build-aux\windows\bundle.ps1      # dist\Shortwave + portable zip
+.\build-aux\windows\installer.ps1   # Inno Setup installer (needs Inno Setup 6)
+```
+
 If Meson can't find `git`, either install it in MSYS2
 (`pacman -S git`) or start the shell with `MSYS2_PATH_TYPE=inherit`.
 

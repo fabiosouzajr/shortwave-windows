@@ -28,6 +28,9 @@ use gtk::glib;
 use crate::audio::SwPlaybackState;
 use crate::platform;
 
+/// Name of the audio sink element in the pipeline, whatever its factory is.
+const AUDIOSINK: &str = "audiosink";
+
 #[rustfmt::skip]
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                                                                                //
@@ -43,9 +46,6 @@ use crate::platform;
 //  audiosink: pulsesink / autoaudiosink on Linux, wasapi2sink / wasapisink on Windows           //
 //                                                                                                //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/// Name of the audio sink element in the pipeline, whatever its factory is.
-const AUDIOSINK: &str = "audiosink";
 
 #[derive(Clone)]
 pub enum GstreamerChange {
