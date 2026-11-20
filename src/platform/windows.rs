@@ -73,6 +73,14 @@ pub fn init_gtk() {
     if let Some(display) = gdk::Display::default() {
         gtk::IconTheme::for_display(&display).add_search_path(datadir().join("icons"));
     }
+
+    adw::init().ok();
+    let style = adw::StyleManager::default();
+    debug!(
+        "Color scheme: system support {}, dark {}",
+        style.system_supports_color_schemes(),
+        style.is_dark()
+    );
 }
 
 /// Installed data directory (GResource, schemas, icons).
