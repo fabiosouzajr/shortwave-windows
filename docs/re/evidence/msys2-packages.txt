@@ -1,0 +1,65 @@
+# pkg-config --modversion (MSYS2 UCRT64, 2026-11-20)
+lcms2                        2.20
+libseccomp                   MISSING
+dbus-1                       MISSING
+glib-2.0                     2.90.1
+gio-2.0                      2.90.1
+gtk4                         4.24.1
+gtk4-win32                   4.24.1
+gtk4-wayland                 MISSING
+gtk4-x11                     MISSING
+libadwaita-1                 1.10.0
+shumate-1.0                  1.7.0
+gstreamer-1.0                1.28.9
+gstreamer-base-1.0           1.28.9
+gstreamer-audio-1.0          1.28.9
+gstreamer-plugins-base-1.0   1.28.9
+gstreamer-plugins-bad-1.0    1.28.9
+gstreamer-bad-audio-1.0      1.28.9
+sqlite3                      3.54.1
+openssl                      4.1.0
+libsoup-3.0                  3.8.1
+
+# meson setup on the unmodified tree
+meson.build:13:0: ERROR: Dependency "dbus-1" not found (tried pkg-config)
+
+# pacman -Q (installed UCRT64 packages relevant to the build)
+mingw-w64-ucrt-x86_64-blueprint-compiler 0.22.2-4
+mingw-w64-ucrt-x86_64-desktop-file-utils 0.29-1
+mingw-w64-ucrt-x86_64-gettext-libtextstyle 1.0-1
+mingw-w64-ucrt-x86_64-gettext-runtime 1.0-1
+mingw-w64-ucrt-x86_64-gettext-tools 1.0-1
+mingw-w64-ucrt-x86_64-gst-libav 1.28.9-1
+mingw-w64-ucrt-x86_64-gst-plugins-bad 1.28.9-2
+mingw-w64-ucrt-x86_64-gst-plugins-bad-libs 1.28.9-2
+mingw-w64-ucrt-x86_64-gst-plugins-base 1.28.9-1
+mingw-w64-ucrt-x86_64-gst-plugins-good 1.28.9-1
+mingw-w64-ucrt-x86_64-appstream 1.2.3-1
+mingw-w64-ucrt-x86_64-gcc 16.2.0-7
+mingw-w64-ucrt-x86_64-gdk-pixbuf2 2.44.8-1
+mingw-w64-ucrt-x86_64-glib2 2.90.1-1
+mingw-w64-ucrt-x86_64-gstreamer 1.28.9-1
+mingw-w64-ucrt-x86_64-gtk4 4.24.1-1
+mingw-w64-ucrt-x86_64-libadwaita 1.10.0-2
+mingw-w64-ucrt-x86_64-librsvg 2.63.4-1
+mingw-w64-ucrt-x86_64-libshumate 1.7.0-1
+mingw-w64-ucrt-x86_64-libsoup3 3.8.1-1
+mingw-w64-ucrt-x86_64-meson 1.12.1-2
+mingw-w64-ucrt-x86_64-ninja 1.13.2-1
+mingw-w64-ucrt-x86_64-ntldd r19.7fb9365-4
+mingw-w64-ucrt-x86_64-pkgconf 1~3.0.11-2
+mingw-w64-ucrt-x86_64-rust 1.100.0-2
+mingw-w64-ucrt-x86_64-sqlite 3.54.1-2
+
+# GStreamer audio sinks available
+autodetect:  autoaudiosink: Auto audio sink
+directsound:  directsoundsink: Direct Sound Audio Sink
+directsound:  directsoundsinkdeviceprovider (GstDeviceProviderFactory)
+directsoundsrc:  directsoundsrc: DirectSound audio source
+directsoundsrc:  directsoundsrcdeviceprovider (GstDeviceProviderFactory)
+wasapi:  wasapideviceprovider (GstDeviceProviderFactory)
+wasapi:  wasapisink: WasapiSrc
+wasapi:  wasapisrc: WasapiSrc
+wasapi2:  wasapi2deviceprovider (GstDeviceProviderFactory)
+wasapi2:  wasapi2sink: Wasapi2Sink
+wasapi2:  wasapi2src: Wasapi2Src

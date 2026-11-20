@@ -1,0 +1,118 @@
+# cargo tree evidence (cargo 1.100.0 (3acc79c0c 2026-11-05), 2026-11-20)
+
+$ cargo tree -e normal -i ashpd
+ashpd v0.10.3
+└── shortwave v0.0.0 (D:\git\shortwave-windows)
+
+$ cargo tree -e normal -i glycin
+glycin v2.1.1
+└── shortwave v0.0.0 (D:\git\shortwave-windows)
+
+$ cargo tree -e normal -i native-tls
+native-tls v0.2.14
+├── async-native-tls v0.5.0
+│   └── cast-sender v0.2.0
+│       └── shortwave v0.0.0 (D:\git\shortwave-windows)
+├── hyper-tls v0.6.0
+│   └── reqwest v0.12.16
+│       └── shortwave v0.0.0 (D:\git\shortwave-windows)
+├── reqwest v0.12.16 (*)
+└── tokio-native-tls v0.3.1
+    ├── hyper-tls v0.6.0 (*)
+    └── reqwest v0.12.16 (*)
+
+$ cargo tree -e normal -i libseccomp-sys
+libseccomp-sys v0.2.1
+└── libseccomp v0.3.0
+    ├── glycin v2.1.1
+    │   └── shortwave v0.0.0 (D:\git\shortwave-windows)
+    └── glycin-utils v3.0.1
+        └── glycin v2.1.1 (*)
+
+$ cargo tree -e normal -i hickory-resolver
+hickory-resolver v0.24.4
+└── async-std-resolver v0.24.4
+    └── shortwave v0.0.0 (D:\git\shortwave-windows)
+
+$ cargo tree -e normal --target x86_64-pc-windows-gnu -i zbus@4.4.0
+zbus v4.4.0
+└── mpris-server v0.8.1
+    └── shortwave v0.0.0 (D:\git\shortwave-windows)
+
+$ cargo tree -e normal --target x86_64-pc-windows-gnu -i zbus@5.7.1
+zbus v5.7.1
+├── ashpd v0.10.3
+│   └── shortwave v0.0.0 (D:\git\shortwave-windows)
+├── glycin v2.1.1
+│   └── shortwave v0.0.0 (D:\git\shortwave-windows)
+└── glycin-utils v3.0.1
+    └── glycin v2.1.1 (*)
+
+$ cargo tree -e normal --target x86_64-pc-windows-gnu -i openssl-sys
+warning: nothing to print.
+
+To find dependencies that require specific target platforms, try to use option `--target all` first, and then narrow your search scope accordingly.
+
+$ cargo tree -e normal --target x86_64-pc-windows-gnu -i schannel
+schannel v0.1.27
+└── native-tls v0.2.14
+    ├── async-native-tls v0.5.0
+    │   └── cast-sender v0.2.0
+    │       └── shortwave v0.0.0 (D:\git\shortwave-windows)
+    ├── hyper-tls v0.6.0
+    │   └── reqwest v0.12.16
+    │       └── shortwave v0.0.0 (D:\git\shortwave-windows)
+    ├── reqwest v0.12.16 (*)
+    └── tokio-native-tls v0.3.1
+        ├── hyper-tls v0.6.0 (*)
+        └── reqwest v0.12.16 (*)
+
+$ cargo tree -e normal --target x86_64-pc-windows-gnu -i libseccomp-sys
+libseccomp-sys v0.2.1
+└── libseccomp v0.3.0
+    ├── glycin v2.1.1
+    │   └── shortwave v0.0.0 (D:\git\shortwave-windows)
+    └── glycin-utils v3.0.1
+        └── glycin v2.1.1 (*)
+
+$ cargo tree -e normal --target x86_64-pc-windows-gnu --depth 1
+shortwave v0.0.0 (D:\git\shortwave-windows)
+├── Inflector v0.11.4
+├── anyhow v1.0.98
+├── ashpd v0.10.3
+├── async-channel v2.3.1
+├── async-compat v0.2.4
+├── async-io v2.4.1
+├── async-std-resolver v0.24.4
+├── cacache v13.1.0
+├── cast-sender v0.2.0
+├── diesel v2.2.10
+├── diesel_migrations v2.2.0
+├── futures-util v0.3.31
+├── gettext-rs v0.7.2
+├── glycin v2.1.1
+├── gstreamer v0.23.6
+├── gstreamer-audio v0.23.6
+├── gtk4 v0.9.6
+├── indexmap v2.9.0
+├── language-tags v0.3.2
+├── libadwaita v0.7.2
+├── libshumate v0.6.0
+├── log v0.4.27
+├── mdns-sd v0.13.9
+├── mpris-server v0.8.1
+├── pretty_env_logger v0.5.0
+├── rand v0.8.5
+├── regex v1.11.1
+├── reqwest v0.12.16
+├── sanitize-filename v0.6.0
+├── serde v1.0.219
+├── serde_derive v1.0.219 (proc-macro)
+├── serde_json v1.0.140
+├── serde_urlencoded v0.7.1
+├── strum v0.26.3
+├── strum_macros v0.26.4 (proc-macro)
+├── sys-locale v0.3.2
+├── thiserror v1.0.69
+├── url v2.5.4
+└── uuid v1.17.0
