@@ -67,6 +67,8 @@ $packages = @(
     'desktop-file-utils'
     'appstream'
     'librsvg'              # SVG icons through gdk-pixbuf
+    'webp-pixbuf-loader'   # WebP station favicons through gdk-pixbuf
+    'glib-networking'      # GIO TLS module for HTTPS streams (souphttpsrc) and map tiles
     'ntldd'                # DLL dependency resolution for bundling
 ) | ForEach-Object { "mingw-w64-ucrt-x86_64-$_" }
 
