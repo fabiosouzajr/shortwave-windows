@@ -38,20 +38,46 @@ else
   message('Building in debug mode')
 endif
 
-cargo_release = custom_target(
-  'cargo-build',
-  build_by_default: true,
-  build_always_stale: true,
-  output: meson.project_name(),
-  console: true,
-  install: true,
-  install_dir: bindir,
-  command: [
-    'env',
-    cargo_env,
-    cargo, 'build',
-    cargo_options,
-    '&&',
-    'cp', 'target' / rust_target / meson.project_name(), '@OUTPUT@',
-  ]
-)
+if not is_windows
+  cargo_release = custom_target(
+    'cargo-build',
+    build_by_default: true,
+    build_always_stale: true,
+    output: meson.project_name(),
+    console: true,
+    install: true,
+    install_dir: bindir,
+    command: [
+      'env',
+      cargo_env,
+      cargo, 'build',
+      cargo_options,
+      '&&',
+      'cp', 'target' / rust_target / meson.project_name(), '@OUTPUT@',
+    ]
+  )
+else
+  # Ninja runs commands without a shell on Windows, so `&&` can't be used
+  # and the binary has an .exe suffix. A small helper does both steps.
+  python = import('python').find_installation()
+  exe_name = meson.project_name() + '.exe'
+  cargo_release = custom_target(
+    'cargo-build',
+    build_by_default: true,
+    build_always_stale: true,
+    output: exe_name,
+    console: true,
+    install: true,
+    install_dir: bindir,
+    command: [
+      python,
+      meson.project_source_root() / 'build-aux' / 'windows' / 'cargo-build.py',
+      '--cargo', cargo,
+      '--cargo-home', meson.project_build_root() / 'cargo-home',
+      '--built', meson.project_build_root() / 'target' / rust_target / exe_name,
+      '--output', '@OUTPUT@',
+      '--',
+      cargo_options,
+    ]
+  )
+endif

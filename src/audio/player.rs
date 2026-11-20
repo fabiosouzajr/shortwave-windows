@@ -30,6 +30,7 @@ use crate::config;
 use crate::device::{SwCastSender, SwDevice, SwDeviceDiscovery, SwDeviceKind};
 use crate::i18n::*;
 use crate::path;
+use crate::platform;
 use crate::settings::{settings_manager, Key};
 use crate::ui::DisplayError;
 
@@ -83,6 +84,7 @@ mod imp {
         cast_sender: SwCastSender,
 
         pub backend: OnceCell<RefCell<GstreamerBackend>>,
+        #[cfg(not(windows))]
         pub mpris_server: OnceCell<MprisServer>,
     }
 
@@ -136,11 +138,11 @@ mod imp {
                 .bidirectional()
                 .build();
 
-            // MPRIS controls
+            // Media controls (MPRIS on Linux, SMTC on Windows)
             glib::spawn_future_local(async move {
-                MprisServer::start()
+                platform::start_media_controls()
                     .await
-                    .handle_error("Unable to start MPRIS media controls")
+                    .handle_error("Unable to start media controls")
             });
 
             // Cleanup temporary recording directory

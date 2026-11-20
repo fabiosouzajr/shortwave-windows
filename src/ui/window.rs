@@ -30,7 +30,7 @@ use crate::ui::{
     about_dialog, DisplayError, SwAddStationDialog, SwDeviceDialog, SwPreferencesDialog,
     SwStationDialog, ToastWindow,
 };
-use crate::utils;
+use crate::platform;
 
 mod imp {
     use super::*;
@@ -210,7 +210,7 @@ mod imp {
     impl SwApplicationWindow {
         async fn verify_background_portal_permissions(&self) {
             // Verify whether app has permissions for background playback
-            let has_permissions = utils::background_portal_permissions().await;
+            let has_permissions = platform::background_permissions().await;
             let mut close_window = has_permissions;
 
             if !has_permissions {

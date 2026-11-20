@@ -7,7 +7,6 @@ license = "GPL-3.0-or-later"
 
 [dependencies]
 anyhow = "1.0"
-ashpd = { version = "0.10", default-features = false, features=["gtk4", "async-std"] }
 async-channel = "2.3"
 async-compat = "0.2"
 async-io = "2.4"
@@ -17,13 +16,11 @@ cast-sender = "0.2"
 diesel = { version = "2.2", features = ["sqlite", "r2d2"] }
 diesel_migrations = "2.2"
 futures-util = "0.3"
-glycin = { version = "2.0", features = ["gdk4"] }
 indexmap = "2.7"
 Inflector = "0.11"
 language-tags = "0.3"
 log = "0.4"
 mdns-sd = "0.13"
-mpris-server = "0.8"
 pretty_env_logger = "0.5"
 rand = "0.8"
 regex = "1.11"
@@ -46,3 +43,10 @@ shumate = { version = "0.6", package = "libshumate"}
 gettext-rs = { version = "0.7", features = ["gettext-system"] }
 adw = { version = "0.7", package = "libadwaita", features = ["v1_7"] }
 gtk = { version = "0.9", package = "gtk4", features = ["gnome_46"] }
+
+# Freedesktop integration (background portal, sandboxed image loading, MPRIS).
+# Kept for every non-Windows target so the upstream build is unchanged.
+[target.'cfg(not(windows))'.dependencies]
+ashpd = { version = "0.10", default-features = false, features=["gtk4", "async-std"] }
+glycin = { version = "2.0", features = ["gdk4"] }
+mpris-server = "0.8"

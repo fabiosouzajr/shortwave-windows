@@ -37,6 +37,7 @@ mod app;
 mod config;
 mod i18n;
 mod path;
+mod platform;
 
 use std::env;
 
@@ -67,6 +68,10 @@ fn main() -> glib::ExitCode {
     // Setup translations
     setlocale(LocaleCategory::LcAll, "");
     bindtextdomain(config::PKGNAME, config::LOCALEDIR).unwrap();
+    // libintl on Windows returns translations in the ANSI code page (e.g.
+    // CP1252) unless told otherwise; gettext-rs and GTK require UTF-8.
+    #[cfg(windows)]
+    bind_textdomain_codeset(config::PKGNAME, "UTF-8").unwrap();
     textdomain(config::PKGNAME).unwrap();
 
     // Load app resources

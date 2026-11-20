@@ -22,7 +22,6 @@ use async_channel::Sender;
 use async_compat::CompatExt;
 use futures_util::StreamExt;
 use gdk::RGBA;
-use glycin::Loader;
 use gtk::gio::File;
 use gtk::graphene::Rect;
 use gtk::prelude::TextureExt;
@@ -37,7 +36,7 @@ static HTTP_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
         .unwrap()
 });
 
-use crate::{config, path};
+use crate::{config, path, platform};
 #[derive(Debug, Clone)]
 struct CoverRequest {
     favicon_url: Url,
@@ -89,9 +88,7 @@ impl CoverRequest {
     async fn cover_bytes(&self) -> Result<(gdk::Texture, Vec<u8>)> {
         self.download_tmp_file().compat().await?;
 
-        let loader = Loader::new(self.tmp_file.clone());
-        let image = loader.load().await?;
-        let texture = image.next_frame().await?.texture();
+        let texture = platform::load_texture(&self.tmp_file).await?;
 
         let snapshot = gtk::Snapshot::new();
         snapshot_thumbnail(&snapshot, texture, self.size as f32);

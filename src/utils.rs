@@ -14,7 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use ashpd::desktop::background::Background;
 use gtk::glib;
 
 use crate::i18n::{gettext_f, ni18n_f};
@@ -85,6 +84,7 @@ pub fn format_duration(d: u64, short: bool) -> String {
 
 /// Ellipsizes a string at the end so that it is `max_len` characters long
 /// Source: https://gitlab.gnome.org/World/pika-backup/-/blob/6bd7d0df56479ee769a249b466d5ac226f88056b/src/ui/utils.rs#L344
+#[cfg_attr(windows, allow(dead_code))] // used by the background portal (non-Windows)
 pub fn ellipsize_end<S: std::fmt::Display>(x: S, max_len: usize) -> String {
     let mut text = x.to_string();
 
@@ -94,29 +94,5 @@ pub fn ellipsize_end<S: std::fmt::Display>(x: S, max_len: usize) -> String {
         text.truncate(max_len.max(1) - 1);
         text.push('…');
         text
-    }
-}
-
-pub async fn background_portal_permissions() -> bool {
-    if !ashpd::is_sandboxed().await {
-        debug!("App is not sandboxed, background playback is allowed.");
-        return true;
-    }
-
-    if let Ok(res) = Background::request()
-        .reason("Play radio station in the background")
-        .send()
-        .await
-    {
-        match res.response() {
-            Ok(response) => response.run_in_background(),
-            Err(err) => {
-                warn!("{}", err);
-                false
-            }
-        }
-    } else {
-        warn!("Unable to check background permissions, falling back to true.");
-        true
     }
 }

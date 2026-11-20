@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 mod gstreamer_backend;
+#[cfg(not(windows))]
 mod mpris;
 mod playback_state;
 mod player;
@@ -24,6 +25,7 @@ mod track;
 mod track_model;
 
 pub use gstreamer_backend::{GstreamerBackend, GstreamerChange};
+#[cfg(not(windows))]
 pub use mpris::MprisServer;
 pub use playback_state::SwPlaybackState;
 pub use player::SwPlayer;
