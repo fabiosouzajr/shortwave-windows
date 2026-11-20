@@ -168,13 +168,19 @@ pub async fn background_permissions() -> bool {
     true
 }
 
-/// Background playback integration.
-// TODO(win): tray icon (Phase 4, workstream 8).
+#[path = "windows/tray.rs"]
+mod tray;
+
+/// Background playback integration: a tray icon to get back to the app.
 #[derive(Default)]
-pub struct BackgroundIntegration;
+pub struct BackgroundIntegration {
+    tray: tray::TrayIntegration,
+}
 
 impl BackgroundIntegration {
-    pub async fn setup(&self, _app: &SwApplication) {}
+    pub async fn setup(&self, app: &SwApplication) {
+        self.tray.setup(app);
+    }
 }
 
 /// Decodes a downloaded station cover with GTK's built-in decoders and the

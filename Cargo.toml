@@ -56,3 +56,4 @@ mpris-server = "0.8"
 # gdk_win32_display_get_win32hcursor, which GTK 4.24 no longer exports.
 [target.'cfg(windows)'.dependencies]
 souvlaki = { version = "0.9", default-features = false }
+tray-icon = { version = "0.26", default-features = false }
