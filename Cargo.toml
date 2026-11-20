@@ -50,3 +50,9 @@ gtk = { version = "0.9", package = "gtk4", features = ["gnome_46"] }
 ashpd = { version = "0.10", default-features = false, features=["gtk4", "async-std"] }
 glycin = { version = "2.0", features = ["gdk4"] }
 mpris-server = "0.8"
+
+# Windows integration (SMTC media controls).
+# Note: gdk4-win32 0.9 can't be used, it links against
+# gdk_win32_display_get_win32hcursor, which GTK 4.24 no longer exports.
+[target.'cfg(windows)'.dependencies]
+souvlaki = { version = "0.9", default-features = false }

@@ -154,10 +154,12 @@ pub fn default_recording_dir() -> PathBuf {
     path
 }
 
+#[path = "windows/smtc.rs"]
+mod smtc;
+
 /// Starts the System Media Transport Controls integration.
-// TODO(win): SMTC (Phase 4, workstream 7).
 pub async fn start_media_controls() -> Result<()> {
-    debug!("Media controls are not implemented on Windows yet.");
+    smtc::start();
     Ok(())
 }
 
