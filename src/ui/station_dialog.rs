@@ -189,10 +189,18 @@ mod imp {
             let long: f64 = metadata.geo_long.unwrap_or(0.0).into();
             let lat: f64 = metadata.geo_lat.unwrap_or(0.0).into();
             if long != 0.0 || lat != 0.0 {
-                self.setup_map_widget();
-                self.map_box.set_visible(true);
-                self.marker.set_location(lat, long);
-                self.map.center_on(lat, long);
+                #[cfg(not(windows))]
+                {
+                    self.setup_map_widget();
+                    self.map_box.set_visible(true);
+                    self.marker.set_location(lat, long);
+                    self.map.center_on(lat, long);
+                }
+
+                // libshumate doesn't load map tiles in this dialog on Windows
+                // (see docs/PORTING.md), so link to OpenStreetMap instead.
+                #[cfg(windows)]
+                self.setup_location_link(lat, long);
             }
 
             // Codec
@@ -221,6 +229,37 @@ mod imp {
             self.stream_row.set_tooltip_text(Some(&url));
         }
 
+        #[cfg(windows)]
+        fn setup_location_link(&self, lat: f64, long: f64) {
+            let url = format!(
+                "https://www.openstreetmap.org/?mlat={lat:.5}&mlon={long:.5}#map=10/{lat:.5}/{long:.5}"
+            );
+
+            let row = adw::ActionRow::builder()
+                .title(i18n("Location"))
+                .subtitle(format!("{lat:.5}, {long:.5}"))
+                .tooltip_text(&url)
+                .activatable(true)
+                .build();
+            row.add_suffix(&gtk::Image::from_icon_name("adw-external-link-symbolic"));
+            row.connect_activated(move |row| {
+                let window = row.root().and_downcast::<gtk::Window>();
+                gtk::UriLauncher::new(&url).launch(
+                    window.as_ref(),
+                    gtk::gio::Cancellable::NONE,
+                    |result| {
+                        if let Err(err) = result {
+                            warn!("Unable to open map link: {err}");
+                        }
+                    },
+                );
+            });
+
+            self.location_group.add(&row);
+            self.location_group.set_visible(true);
+        }
+
+        #[cfg_attr(windows, allow(dead_code))]
         fn setup_map_widget(&self) {
             let registry = shumate::MapSourceRegistry::with_defaults();
 
