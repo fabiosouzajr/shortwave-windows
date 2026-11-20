@@ -41,7 +41,9 @@ def main() -> int:
     if cargo_args and cargo_args[0] == "--":
         cargo_args = cargo_args[1:]
 
-    env = dict(os.environ, CARGO_HOME=args.cargo_home)
+    # Strip release binaries (no effect on debug builds); Linux builds don't use
+    # this helper, so upstream's profile is unchanged there.
+    env = dict(os.environ, CARGO_HOME=args.cargo_home, CARGO_PROFILE_RELEASE_STRIP="symbols")
     result = subprocess.run([args.cargo, "build", *cargo_args], env=env)
     if result.returncode != 0:
         return result.returncode
