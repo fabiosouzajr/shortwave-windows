@@ -77,6 +77,15 @@ but not exposed directly (they back the facades): `create_text_file`,
   2. install Visual Studio Build Tools (C++ workload).
   Both install system software, so they are left for the user to decide
   (Checkpoint A).
+- **Resolved (Phase 4):** the user installed the VS 2026 Build Tools C++
+  workload (MSVC 14.52). After the next `Cargo.toml` change rust-analyzer
+  reloaded, proc-macro diagnostics disappeared, and
+  `find_referencing_symbols("integer", "src/settings/settings_manager.rs")`
+  returns 7 references — the same as ripgrep, including the call inside a
+  `glib::clone!` block (`src/audio/player.rs:188`). What worked: **option 2**.
+  Serena still runs rust-analyzer for the MSVC host; `*-sys` build scripts that
+  need `pkg-config` fail there, which only affects generated sys bindings, not
+  the app's own symbols.
 
 ### Which tool produced which report
 

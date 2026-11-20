@@ -1,0 +1,70 @@
+# Building Shortwave on Windows
+
+This is the unofficial Windows port of GNOME Shortwave. It builds natively on
+Windows 10/11 x64 with MSYS2's **UCRT64** environment (GNU toolchain, GTK4,
+libadwaita, GStreamer).
+
+## Prerequisites
+
+- [MSYS2](https://www.msys2.org/) installed at `C:\msys64`
+  (`winget install MSYS2.MSYS2`)
+- Git for Windows (`winget install Git.Git`)
+- PowerShell 7 or Windows PowerShell 5.1
+
+Visual Studio and rustup are **not** needed to build. (They are only useful for
+editor tooling such as rust-analyzer.)
+
+## 1. Install the build dependencies (once)
+
+```powershell
+git clone <this repository> shortwave-windows
+cd shortwave-windows
+.\build-aux\windows\setup-msys2.ps1
+```
+
+This updates MSYS2 and installs the UCRT64 packages: toolchain, Rust, Meson,
+Ninja, GTK4, libadwaita, libshumate, GStreamer (base/good/bad/libav), SQLite,
+gettext, librsvg, the WebP pixbuf loader, glib-networking and ntldd. It is
+safe to re-run; add `-SkipUpdate` to skip the full `pacman -Syu`.
+
+## 2. Build
+
+```powershell
+.\build-aux\windows\build.ps1            # release build into _build\install
+.\build-aux\windows\build.ps1 -Run       # build, then start the app
+.\build-aux\windows\build.ps1 -BuildProfile development   # debug build, app id *.Devel
+.\build-aux\windows\build.ps1 -Reconfigure                # wipe and re-run meson setup
+```
+
+The script runs `meson setup`, `meson compile` and `meson install` inside
+MSYS2 UCRT64. The executable ends up in `_build\install\bin\shortwave.exe`.
+
+Until the self-contained bundle exists, `shortwave.exe` needs MSYS2's
+`C:\msys64\ucrt64\bin` on `PATH` for the GTK and GStreamer DLLs; `-Run` sets
+that up for you.
+
+## Building by hand
+
+From an **MSYS2 UCRT64** shell:
+
+```sh
+meson setup _build --prefix="$PWD/_build/install"
+meson compile -C _build
+meson install -C _build
+```
+
+If Meson can't find `git`, either install it in MSYS2
+(`pacman -S git`) or start the shell with `MSYS2_PATH_TYPE=inherit`.
+
+## How the Windows build differs
+
+- `meson.build` skips the D-Bus, OpenSSL, lcms2 and libseccomp checks on
+  Windows (HTTPS uses SChannel; there is no D-Bus session bus or glycin).
+- The cargo step goes through `build-aux/windows/cargo-build.py`, because Ninja
+  on Windows runs commands without a shell and the binary is `shortwave.exe`.
+- The `.desktop` file and D-Bus service aren't installed; the AppStream
+  metainfo is still generated because it's bundled into the GResource.
+- Platform-specific code lives in `src/platform/` (`linux.rs` keeps upstream's
+  behaviour for every non-Windows target, `windows.rs` holds the port).
+
+See [PORTING.md](PORTING.md) for the design and [re/](re/) for the analysis.
