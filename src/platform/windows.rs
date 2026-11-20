@@ -32,8 +32,8 @@ use crate::config;
 /// `bin\shortwave.exe`, if it contains our GResource bundle. Falls back to the
 /// build-time `DATADIR` (development runs from a Meson install prefix).
 static DATADIR: LazyLock<PathBuf> = LazyLock::new(|| {
-    let relocated = env::current_exe().ok().and_then(|exe| {
-        let share = exe.parent()?.parent()?.join("share");
+    let relocated = install_prefix().and_then(|prefix| {
+        let share = prefix.join("share");
         let gresource = share
             .join(config::PKGNAME)
             .join(format!("{}.gresource", config::APP_ID));
@@ -52,8 +52,29 @@ static DATADIR: LazyLock<PathBuf> = LazyLock::new(|| {
     }
 });
 
+/// The installation prefix, i.e. the parent of `bin\shortwave.exe`.
+fn install_prefix() -> Option<PathBuf> {
+    Some(env::current_exe().ok()?.parent()?.parent()?.to_path_buf())
+}
+
 /// Early process setup, before GTK is initialised.
 pub fn init() {
+    // GIO's TLS backends (used by GStreamer's souphttpsrc for https:// and HLS
+    // streams, and by libshumate for map tiles) only see the roots already in
+    // the Windows certificate store, which Windows fills lazily. Point them at
+    // the bundled Mozilla CA bundle; HTTPS from Rust (reqwest) uses SChannel
+    // and is unaffected.
+    if env::var_os("SSL_CERT_FILE").is_none() {
+        if let Some(ca) = install_prefix().map(|p| p.join(r"etc\ssl\certs\ca-bundle.crt")) {
+            if ca.is_file() {
+                debug!("Using CA bundle {}", ca.display());
+                env::set_var("SSL_CERT_FILE", &ca);
+            } else {
+                debug!("No bundled CA certificates, using the Windows store only");
+            }
+        }
+    }
+
     // Make our compiled GSettings schema visible. GLib also searches
     // `<dir of libgio>\..\share`, which covers the bundled layout, but not a
     // development prefix. `gio::Settings::new()` aborts if the schema is

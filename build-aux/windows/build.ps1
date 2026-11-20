@@ -91,6 +91,12 @@ if ($Reconfigure -and (Test-Path $buildPath)) {
 Invoke-Msys "meson compile -C '$b'"
 Invoke-Msys "meson install -C '$b' --quiet"
 
+# CA certificates for GIO's TLS backends (see platform::init); same layout as the bundle
+$caSource = Join-Path $Msys2Root 'ucrt64\etc\ssl\certs\ca-bundle.crt'
+$caTarget = Join-Path $Prefix 'etc\ssl\certs'
+New-Item -ItemType Directory -Force -Path $caTarget | Out-Null
+Copy-Item $caSource $caTarget -Force
+
 $exe = Join-Path $Prefix 'bin\shortwave.exe'
 Write-Host "==> Installed: $exe"
 
