@@ -1,0 +1,15 @@
+# Keep LF everywhere so Meson, Blueprint, .ui, SQL and shell files work on
+# every platform, even with core.autocrlf=true on Windows.
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets
+*.ico binary
+*.png binary
+*.jpg binary
+*.ogg binary
+*.mp3 binary
