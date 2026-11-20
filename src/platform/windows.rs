@@ -95,6 +95,19 @@ pub fn cache_dir() -> PathBuf {
     path
 }
 
+/// GStreamer element factory for audio output: WASAPI (the modern
+/// `wasapi2sink` first), falling back to `autoaudiosink`.
+pub fn audio_sink() -> &'static str {
+    for factory in ["wasapi2sink", "wasapisink"] {
+        if gstreamer::ElementFactory::find(factory).is_some() {
+            return factory;
+        }
+    }
+
+    warn!("No WASAPI audio sink found, falling back to autoaudiosink (no volume control).");
+    "autoaudiosink"
+}
+
 /// Default for the `recording-track-directory` setting: `<Music>\Shortwave`.
 pub fn default_recording_dir() -> PathBuf {
     let mut path = glib::user_special_dir(glib::UserDirectory::Music)

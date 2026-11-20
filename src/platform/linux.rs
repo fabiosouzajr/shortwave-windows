@@ -58,6 +58,18 @@ pub fn cache_dir() -> PathBuf {
     path
 }
 
+/// GStreamer element factory for audio output.
+pub fn audio_sink() -> &'static str {
+    // Determine if env supports pulseaudio
+    if gstreamer::ElementFactory::make("pulsesink").build().is_ok() {
+        "pulsesink"
+    } else {
+        // If not, use autoaudiosink as fallback
+        warn!("Cannot find PulseAudio. Shortwave will only work with limited functions.");
+        "autoaudiosink"
+    }
+}
+
 /// Default for the `recording-track-directory` setting.
 pub fn default_recording_dir() -> PathBuf {
     glib::user_special_dir(glib::UserDirectory::Music).unwrap_or(glib::home_dir())

@@ -26,6 +26,7 @@ use gstreamer_audio::{StreamVolume, StreamVolumeFormat};
 use gtk::glib;
 
 use crate::audio::SwPlaybackState;
+use crate::platform;
 
 #[rustfmt::skip]
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -36,10 +37,15 @@ use crate::audio::SwPlaybackState;
 //   --------------      --------------     |     |    (   -------------   )                      //
 //  | uridecodebin | -> | audioconvert | -> | tee |                                               //
 //   --------------      --------------     |     |     -------      ---------------------------  //
-//                                          |     | -> | queue | -> | pulsesink | autoaudiosink | //
+//                                          |     | -> | queue | -> | audiosink (platform)      | //
 //                                           -----      -------      ---------------------------  //
 //                                                                                                //
+//  audiosink: pulsesink / autoaudiosink on Linux, wasapi2sink / wasapisink on Windows           //
+//                                                                                                //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/// Name of the audio sink element in the pipeline, whatever its factory is.
+const AUDIOSINK: &str = "audiosink";
 
 #[derive(Clone)]
 pub enum GstreamerChange {
@@ -79,18 +85,13 @@ pub struct GstreamerBackend {
 
 impl GstreamerBackend {
     pub fn new(gst_sender: Sender<GstreamerChange>) -> Self {
-        // Determine if env supports pulseaudio
-        let audiosink = if Self::check_pulse_support() {
-            "pulsesink"
-        } else {
-            // If not, use autoaudiosink as fallback
-            warn!("Cannot find PulseAudio. Shortwave will only work with limited functions.");
-            "autoaudiosink"
-        };
+        // Pick the platform's audio sink (PulseAudio / WASAPI, with fallbacks)
+        let audiosink = platform::audio_sink();
+        debug!("Using audio sink: {audiosink}");
 
         // create gstreamer pipeline
         let pipeline_launch = format!(
-            "uridecodebin name=uridecodebin use-buffering=true buffer-duration=6000000000 ! audioconvert name=audioconvert ! tee name=tee ! queue ! {audiosink} name={audiosink}"
+            "uridecodebin name=uridecodebin use-buffering=true buffer-duration=6000000000 ! audioconvert name=audioconvert ! tee name=tee ! queue ! {audiosink} name={AUDIOSINK}"
         );
         let pipeline = gstreamer::parse::launch(&pipeline_launch)
             .expect("Unable to create gstreamer pipeline");
@@ -121,10 +122,10 @@ impl GstreamerBackend {
     }
 
     fn setup_signals(&mut self) {
-        // There's no volume support for non pulseaudio systems
-        if let Some(pulsesink) = self.pipeline.by_name("pulsesink") {
-            // Update volume coming from pulseaudio / pulsesink
-            pulsesink.connect_notify(
+        // There's no volume support for sinks without a volume property (e.g. autoaudiosink)
+        if let Some(audiosink) = self.volume_sink() {
+            // Update volume coming from the sound server (pulseaudio / wasapi)
+            audiosink.connect_notify(
                 Some("volume"),
                 clone!(
                     #[strong(rename_to = sender)]
@@ -146,7 +147,7 @@ impl GstreamerBackend {
 
             // It's possible to mute the audio (!= 0.0) from pulseaudio side, so we should
             // handle this too by setting the volume to 0.0
-            pulsesink.connect_notify(
+            audiosink.connect_notify(
                 Some("mute"),
                 clone!(
                     #[strong(rename_to = sender)]
@@ -272,9 +273,17 @@ impl GstreamerBackend {
         }
     }
 
+    /// The audio sink, if it supports `volume` / `mute` (pulsesink, wasapi2sink,
+    /// wasapisink do; autoaudiosink doesn't).
+    fn volume_sink(&self) -> Option<Element> {
+        self.pipeline
+            .by_name(AUDIOSINK)
+            .filter(|sink| sink.find_property("volume").is_some())
+    }
+
     pub fn volume(&self) -> f64 {
-        let v = if let Some(pulsesink) = self.pipeline.by_name("pulsesink") {
-            pulsesink.property("volume")
+        let v = if let Some(audiosink) = self.volume_sink() {
+            audiosink.property("volume")
         } else {
             1.0
         };
@@ -283,25 +292,25 @@ impl GstreamerBackend {
     }
 
     pub fn set_volume(&self, volume: f64) {
-        if let Some(pulsesink) = self.pipeline.by_name("pulsesink") {
+        if let Some(audiosink) = self.volume_sink() {
             if volume != 0.0 {
-                pulsesink.set_property("mute", false);
+                audiosink.set_property("mute", false);
             }
 
-            let pa_volume = StreamVolume::convert_volume(
+            let linear_volume = StreamVolume::convert_volume(
                 StreamVolumeFormat::Cubic,
                 StreamVolumeFormat::Linear,
                 volume,
             );
-            pulsesink.set_property("volume", pa_volume);
+            audiosink.set_property("volume", linear_volume);
         } else {
-            warn!("PulseAudio is required for changing the volume.")
+            warn!("The audio sink doesn't support changing the volume.")
         }
     }
 
     pub fn set_mute(&self, mute: bool) {
-        if let Some(pulsesink) = self.pipeline.by_name("pulsesink") {
-            pulsesink.set_property("mute", mute);
+        if let Some(audiosink) = self.volume_sink() {
+            audiosink.set_property("mute", mute);
         }
     }
 
@@ -499,11 +508,6 @@ impl GstreamerBackend {
             warn!("Failed to stop recording: {}", err);
         }
         debug!("Destroyed recorderbin.");
-    }
-
-    fn check_pulse_support() -> bool {
-        let pulsesink = gstreamer::ElementFactory::make("pulsesink").build();
-        pulsesink.is_ok()
     }
 
     fn parse_bus_message(
