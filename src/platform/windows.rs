@@ -141,5 +141,108 @@ impl BackgroundIntegration {
 /// gdk-pixbuf loaders (glycin's sandboxed loaders are Linux-only).
 pub async fn load_texture(file: &gio::File) -> Result<gdk::Texture> {
     let (bytes, _etag) = file.load_bytes_future().await?;
+
+    // Many favicons are ICO files that contain a PNG image. gdk-pixbuf's ICO
+    // loader only handles BMP entries ("Compressed icons are not supported"),
+    // while glycin on Linux handles both, so decode the PNG directly.
+    if let Some(png) = png_from_ico(&bytes) {
+        return Ok(gdk::Texture::from_bytes(&glib::Bytes::from(png))?);
+    }
+
     Ok(gdk::Texture::from_bytes(&bytes)?)
+}
+
+/// Returns the PNG data of the largest PNG-compressed image in an ICO file,
+/// or `None` if `data` isn't an ICO file or has no PNG entry.
+fn png_from_ico(data: &[u8]) -> Option<&[u8]> {
+    const PNG_SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
+
+    let u16_at = |pos: usize| Some(u16::from_le_bytes(data.get(pos..pos + 2)?.try_into().ok()?));
+    let u32_at = |pos: usize| Some(u32::from_le_bytes(data.get(pos..pos + 4)?.try_into().ok()?));
+
+    // ICONDIR: reserved = 0, type = 1 (icon), count
+    if u16_at(0)? != 0 || u16_at(2)? != 1 {
+        return None;
+    }
+    let count = usize::from(u16_at(4)?);
+
+    let mut best: Option<(u32, &[u8])> = None;
+    for i in 0..count {
+        // ICONDIRENTRY (16 bytes): width, height (0 = 256), ..., size, offset
+        let entry = 6 + 16 * i;
+        let dim = |b: u8| if b == 0 { 256 } else { u32::from(b) };
+        let width = dim(*data.get(entry)?);
+        let height = dim(*data.get(entry + 1)?);
+        let size = usize::try_from(u32_at(entry + 8)?).ok()?;
+        let offset = usize::try_from(u32_at(entry + 12)?).ok()?;
+
+        let Some(image) = data.get(offset..offset.checked_add(size)?) else {
+            continue;
+        };
+        if !image.starts_with(PNG_SIGNATURE) {
+            continue;
+        }
+
+        let area = width * height;
+        if best.is_none_or(|(best_area, _)| area > best_area) {
+            best = Some((area, image));
+        }
+    }
+
+    best.map(|(_, image)| image)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const PNG_SIG: &[u8] = b"\x89PNG\r\n\x1a\n";
+
+    /// Builds an ICO file with the given (width, height, payload) entries.
+    fn ico(entries: &[(u8, u8, &[u8])]) -> Vec<u8> {
+        let mut out = vec![0, 0, 1, 0];
+        out.extend_from_slice(&(entries.len() as u16).to_le_bytes());
+        let mut offset = 6 + 16 * entries.len() as u32;
+        for (w, h, data) in entries {
+            out.extend_from_slice(&[*w, *h, 0, 0, 1, 0, 32, 0]);
+            out.extend_from_slice(&(data.len() as u32).to_le_bytes());
+            out.extend_from_slice(&offset.to_le_bytes());
+            offset += data.len() as u32;
+        }
+        for (_, _, data) in entries {
+            out.extend_from_slice(data);
+        }
+        out
+    }
+
+    #[test]
+    fn png_in_ico_is_extracted() {
+        let png = [PNG_SIG, b"png-payload"].concat();
+        let file = ico(&[(32, 32, &png)]);
+        assert_eq!(png_from_ico(&file), Some(&png[..]));
+    }
+
+    #[test]
+    fn largest_png_entry_wins() {
+        let small = [PNG_SIG, b"small"].concat();
+        let big = [PNG_SIG, b"big"].concat();
+        // width/height 0 means 256 px
+        let file = ico(&[(16, 16, &small), (0, 0, &big)]);
+        assert_eq!(png_from_ico(&file), Some(&big[..]));
+    }
+
+    #[test]
+    fn bmp_only_ico_is_left_to_gdk_pixbuf() {
+        let file = ico(&[(32, 32, b"\x28\x00\x00\x00bmp-dib")]);
+        assert_eq!(png_from_ico(&file), None);
+    }
+
+    #[test]
+    fn non_ico_and_truncated_data_are_ignored() {
+        assert_eq!(png_from_ico(PNG_SIG), None);
+        assert_eq!(png_from_ico(&[0, 0, 1, 0, 5, 0]), None);
+        let mut file = ico(&[(32, 32, &[PNG_SIG, b"x"].concat())]);
+        file.truncate(file.len() - 3);
+        assert_eq!(png_from_ico(&file), None);
+    }
 }
