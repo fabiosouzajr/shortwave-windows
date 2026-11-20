@@ -20,7 +20,7 @@
 //! `utils.rs`, `audio/player.rs` and `api/cover_loader.rs`.
 
 use std::cell::OnceCell;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use anyhow::Result;
@@ -68,6 +68,11 @@ pub fn audio_sink() -> &'static str {
         warn!("Cannot find PulseAudio. Shortwave will only work with limited functions.");
         "autoaudiosink"
     }
+}
+
+/// File name for a saved recording in `dir` (upstream behaviour).
+pub fn recording_file_name(_dir: &Path, title: &str) -> String {
+    sanitize_filename::sanitize(title) + ".ogg"
 }
 
 /// Default for the `recording-track-directory` setting.

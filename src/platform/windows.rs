@@ -17,7 +17,8 @@
 //! Windows platform integration.
 
 use std::env;
-use std::path::PathBuf;
+use std::os::windows::ffi::OsStrExt;
+use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
 use anyhow::Result;
@@ -106,6 +107,43 @@ pub fn audio_sink() -> &'static str {
 
     warn!("No WASAPI audio sink found, falling back to autoaudiosink (no volume control).");
     "autoaudiosink"
+}
+
+/// File name for a saved recording in `dir`.
+///
+/// Same sanitising as upstream (`sanitize-filename` applies the Windows rules
+/// when built for Windows), plus:
+/// - a fallback name when nothing is left (e.g. the title is `CON` or `???`);
+/// - the name is shortened so that `dir\name` fits in `MAX_PATH`, since most
+///   systems don't have long paths enabled.
+pub fn recording_file_name(dir: &Path, title: &str) -> String {
+    const EXTENSION: &str = ".ogg";
+    const FALLBACK: &str = "Track";
+    // MAX_PATH is 260 UTF-16 units including the terminating NUL
+    const MAX_PATH_LEN: usize = 259;
+
+    let sanitized = sanitize_filename::sanitize(title);
+
+    let dir_len = dir.as_os_str().encode_wide().count();
+    let budget = MAX_PATH_LEN
+        .saturating_sub(dir_len + 1 + EXTENSION.len())
+        .max(1);
+
+    let mut used = 0;
+    let mut end = 0;
+    for (i, c) in sanitized.char_indices() {
+        used += c.len_utf16();
+        if used > budget {
+            break;
+        }
+        end = i + c.len_utf8();
+    }
+
+    // Shortening may leave a trailing dot or space, which Windows strips
+    let stem = sanitized[..end].trim_end_matches(['.', ' ']);
+    let stem = if stem.trim().is_empty() { FALLBACK } else { stem };
+
+    format!("{stem}{EXTENSION}")
 }
 
 /// Default for the `recording-track-directory` setting: `<Music>\Shortwave`.
@@ -213,6 +251,36 @@ mod tests {
             out.extend_from_slice(data);
         }
         out
+    }
+
+    #[test]
+    fn recording_name_is_sanitized_for_windows() {
+        let dir = Path::new(r"C:\Users\me\Music\Shortwave");
+        assert_eq!(recording_file_name(dir, "AC/DC: Back <in> Black?"), "ACDC Back in Black.ogg");
+        assert_eq!(recording_file_name(dir, "Ends with dot."), "Ends with dot.ogg");
+    }
+
+    #[test]
+    fn reserved_or_empty_title_gets_a_fallback_name() {
+        let dir = Path::new(r"C:\Music");
+        assert_eq!(recording_file_name(dir, "CON"), "Track.ogg");
+        assert_eq!(recording_file_name(dir, "???"), "Track.ogg");
+    }
+
+    #[test]
+    fn full_path_stays_within_max_path() {
+        let dir = PathBuf::from(format!(r"C:\{}", "d".repeat(200)));
+        let name = recording_file_name(&dir, &"é".repeat(300));
+        let full = dir.join(&name);
+        assert!(full.as_os_str().encode_wide().count() <= 259, "{}", full.display());
+        assert!(name.ends_with(".ogg"));
+        assert!(name.starts_with('é'));
+    }
+
+    #[test]
+    fn short_names_are_untouched() {
+        let dir = Path::new(r"C:\Music");
+        assert_eq!(recording_file_name(dir, "Artist - Title"), "Artist - Title.ogg");
     }
 
     #[test]

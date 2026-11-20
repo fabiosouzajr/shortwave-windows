@@ -332,8 +332,12 @@ impl GstreamerBackend {
         debug!("Creating new recorderbin...");
 
         // Create actual recorderbin
+        // The audioconvert lets this branch accept whatever format the tee
+        // already carries. Some sinks (e.g. wasapi2sink on Windows) only
+        // accept their current caps once running, so without it the
+        // renegotiation for vorbisenc (F32 only) fails with not-negotiated.
         let description =
-            "queue name=queue ! vorbisenc ! oggmux  ! filesink name=filesink async=false";
+            "queue name=queue ! audioconvert ! vorbisenc ! oggmux  ! filesink name=filesink async=false";
         let recorderbin = gstreamer::parse::bin_from_description(description, true)
             .expect("Unable to create recorderbin");
         recorderbin.set_property("message-forward", true);

@@ -28,6 +28,7 @@ use uuid::Uuid;
 use crate::api::{Error, SwStation};
 use crate::app::SwApplication;
 use crate::audio::SwRecordingState;
+use crate::platform;
 use crate::settings::{settings_manager, Key};
 use crate::ui::DisplayError;
 
@@ -183,9 +184,8 @@ impl SwTrack {
         debug!("Save track \"{}\"", &self.title());
 
         let directory = settings_manager::string(Key::RecordingTrackDirectory);
-        let filename = sanitize_filename::sanitize(self.title()) + ".ogg";
-
         let mut path = PathBuf::from(directory);
+        let filename = platform::recording_file_name(&path, &self.title());
 
         // The Windows default (`Music\Shortwave`) may not exist yet.
         #[cfg(windows)]
