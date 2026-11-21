@@ -118,7 +118,8 @@ mod imp {
         fn set_metadata(&self, metadata: StationMetadata) {
             self.station_label.set_text(&metadata.name);
 
-            let quality = metadata.formatted_quality();
+            // Interim: replaced by the codec icon and bitrate meter
+            let quality = metadata.display_codec().unwrap_or_default();
             self.quality_label.set_text(&quality);
             self.quality_label.set_visible(!quality.is_empty());
 

@@ -22,7 +22,6 @@ use inflector::Inflector;
 use serde::{Deserialize, Deserializer, Serializer};
 use url::Url;
 
-use crate::i18n::i18n_f;
 
 #[derive(glib::Boxed, Default, Debug, Clone, Serialize, Deserialize)]
 #[boxed_type(name = "SwStationMetadata")]
@@ -80,20 +79,22 @@ impl StationMetadata {
         formatted.split_at(2).1.to_string()
     }
 
-    /// Codec and bitrate for display, e.g. `AAC · 128 kbit/s`.
-    /// Empty if neither is known.
-    pub fn formatted_quality(&self) -> String {
-        let mut parts = Vec::new();
+    /// Codec name for display, e.g. `AAC+`; `None` if unknown.
+    pub fn display_codec(&self) -> Option<String> {
+        let codec = self.codec.trim().to_uppercase();
+        (!codec.is_empty() && codec != "UNKNOWN").then_some(codec)
+    }
 
-        let codec = self.codec.trim();
-        if !codec.is_empty() {
-            parts.push(codec.to_string());
-        }
-        if self.bitrate > 0 {
-            parts.push(i18n_f("{} kbit/s", &[&self.bitrate.to_string()]));
-        }
+    pub fn is_lossless(&self) -> bool {
+        ["FLAC", "ALAC", "WAV", "PCM"].contains(&self.codec.trim().to_uppercase().as_str())
+    }
 
-        parts.join(" · ")
+    /// Number of lit bars (0–4) in the card's bitrate meter.
+    pub fn bitrate_level(&self) -> u8 {
+        [64, 128, 192, 320]
+            .iter()
+            .filter(|&&threshold| self.bitrate >= threshold)
+            .count() as u8
     }
 }
 
@@ -132,37 +133,41 @@ where
 mod tests {
     use super::*;
 
-    fn quality(codec: &str, bitrate: i32) -> String {
+    fn quality(codec: &str, bitrate: i32) -> StationMetadata {
         StationMetadata {
             codec: codec.to_string(),
             bitrate,
             ..Default::default()
         }
-        .formatted_quality()
     }
 
     #[test]
-    fn quality_codec_and_bitrate() {
-        assert_eq!(quality("AAC", 128), "AAC · 128 kbit/s");
+    fn codec_display() {
+        assert_eq!(quality(" aac+ ", 0).display_codec().as_deref(), Some("AAC+"));
+        assert_eq!(quality("UNKNOWN", 0).display_codec(), None);
+        assert_eq!(quality("  ", 0).display_codec(), None);
     }
 
     #[test]
-    fn quality_codec_only() {
-        assert_eq!(quality("MP3", 0), "MP3");
+    fn codec_lossless() {
+        assert!(quality("flac", 0).is_lossless());
+        assert!(!quality("MP3", 0).is_lossless());
     }
 
     #[test]
-    fn quality_bitrate_only() {
-        assert_eq!(quality("", 96), "96 kbit/s");
-    }
-
-    #[test]
-    fn quality_nothing_known() {
-        assert_eq!(quality("", 0), "");
-    }
-
-    #[test]
-    fn quality_whitespace_codec_is_empty() {
-        assert_eq!(quality("  ", 0), "");
+    fn bitrate_levels() {
+        for (b, l) in [
+            (-1, 0),
+            (0, 0),
+            (63, 0),
+            (64, 1),
+            (128, 2),
+            (191, 2),
+            (192, 3),
+            (320, 4),
+            (1411, 4),
+        ] {
+            assert_eq!(quality("", b).bitrate_level(), l, "bitrate {b}");
+        }
     }
 }
