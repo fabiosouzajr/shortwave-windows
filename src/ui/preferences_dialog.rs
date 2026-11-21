@@ -22,12 +22,61 @@ use gtk::{gio, glib, CompositeTemplate};
 use crate::i18n::{i18n, ni18n_f};
 use crate::settings::{settings_manager, Key};
 
+/// Languages with a translation (see po/LINGUAS), shown by their own name.
+const LANGUAGES: &[(&str, &str)] = &[
+    ("be", "Беларуская"),
+    ("bg", "Български"),
+    ("ca", "Català"),
+    ("cs", "Čeština"),
+    ("da", "Dansk"),
+    ("de", "Deutsch"),
+    ("el", "Ελληνικά"),
+    ("en", "English"),
+    ("en_GB", "English (UK)"),
+    ("es", "Español"),
+    ("eu", "Euskara"),
+    ("fa", "فارسی"),
+    ("fi", "Suomi"),
+    ("fr", "Français"),
+    ("fur", "Furlan"),
+    ("gl", "Galego"),
+    ("he", "עברית"),
+    ("hi", "हिन्दी"),
+    ("hr", "Hrvatski"),
+    ("hu", "Magyar"),
+    ("ia", "Interlingua"),
+    ("id", "Bahasa Indonesia"),
+    ("is", "Íslenska"),
+    ("it", "Italiano"),
+    ("ka", "ქართული"),
+    ("nl", "Nederlands"),
+    ("oc", "Occitan"),
+    ("pl", "Polski"),
+    ("pt", "Português"),
+    ("pt_BR", "Português (Brasil)"),
+    ("ro", "Română"),
+    ("ru", "Русский"),
+    ("sk", "Slovenčina"),
+    ("sl", "Slovenščina"),
+    ("sr", "Српски"),
+    ("sv", "Svenska"),
+    ("tr", "Türkçe"),
+    ("uk", "Українська"),
+    ("vi", "Tiếng Việt"),
+    ("zh_CN", "简体中文"),
+    ("zh_TW", "繁體中文"),
+];
+
 mod imp {
     use super::*;
 
     #[derive(Debug, Default, CompositeTemplate)]
     #[template(resource = "/de/haeckerfelix/Shortwave/gtk/preferences_dialog.ui")]
     pub struct SwPreferencesDialog {
+        // General
+        #[template_child]
+        language_row: TemplateChild<adw::ComboRow>,
+
         // Playback
         #[template_child]
         background_playback_switch: TemplateChild<gtk::Switch>,
@@ -61,6 +110,29 @@ mod imp {
 
     impl ObjectImpl for SwPreferencesDialog {
         fn constructed(&self) {
+            // Language: first entry is the system language (empty setting)
+            let names = std::iter::once(i18n("System Default"))
+                .chain(LANGUAGES.iter().map(|(_, name)| name.to_string()))
+                .collect::<Vec<_>>();
+            let names = names.iter().map(String::as_str).collect::<Vec<_>>();
+            self.language_row
+                .set_model(Some(&gtk::StringList::new(&names)));
+
+            let current = settings_manager::string(Key::Language);
+            let selected = LANGUAGES
+                .iter()
+                .position(|(code, _)| *code == current)
+                .map_or(0, |i| i as u32 + 1);
+            self.language_row.set_selected(selected);
+
+            self.language_row.connect_selected_notify(|row| {
+                let code = match row.selected() {
+                    0 => "",
+                    i => LANGUAGES[i as usize - 1].0,
+                };
+                settings_manager::set_string(Key::Language, code.to_string());
+            });
+
             // Playback
             settings_manager::bind_property(
                 Key::BackgroundPlayback,

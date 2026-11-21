@@ -49,5 +49,8 @@
     <key name="notifications" type="b">
       <default>false</default>
     </key>
+    <key name="language" type="s">
+      <default>""</default>
+    </key>
   </schema>
 </schemalist>

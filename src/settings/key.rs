@@ -43,4 +43,5 @@ pub enum Key {
 
     BackgroundPlayback,
     Notifications,
+    Language,
 }

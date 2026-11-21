@@ -78,6 +78,12 @@ fn main() -> glib::ExitCode {
     }
 
     // Setup translations
+    // A language picked in the preferences overrides the system language
+    let language = settings::settings_manager::string(settings::Key::Language);
+    if !language.is_empty() {
+        // glib::setenv also updates the CRT environment on Windows, which libintl reads
+        unsafe { glib::setenv("LANGUAGE", &language, true).ok() };
+    }
     setlocale(LocaleCategory::LcAll, "");
     bindtextdomain(config::PKGNAME, platform::localedir()).unwrap();
     // libintl on Windows returns translations in the ANSI code page (e.g.
