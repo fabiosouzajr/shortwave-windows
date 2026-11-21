@@ -57,3 +57,5 @@ shortwave.pot
 *.exe
 !packaging/**/*.exe
 .serena/cache/
+
+.superpowers/
