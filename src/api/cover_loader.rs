@@ -41,6 +41,8 @@ static HTTP_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
 const NO_LOGO_TTL: Duration = Duration::from_secs(86400 * 7);
 /// How much of a homepage is scanned for icon links.
 const HOMEPAGE_READ_LIMIT: usize = 512 * 1024;
+/// How many icons found on a homepage are tried before /favicon.ico.
+const MAX_HOMEPAGE_CANDIDATES: usize = 4;
 
 use super::client::USER_AGENT;
 use super::logo_discovery::{icon_candidates, root_favicon};
@@ -48,6 +50,50 @@ use crate::{config, path, platform};
 
 fn no_logo_marker_fresh(age: Duration) -> bool {
     age < NO_LOGO_TTL
+}
+
+/// URLs to try after the favicon: the best few homepage icons, then the
+/// site's /favicon.ico. Nothing if the homepage couldn't be reached, as
+/// its /favicon.ico is on the same unreachable host.
+fn fallback_urls(favicon: Option<&Url>, found: Option<Vec<Url>>, homepage: &Url) -> Vec<Url> {
+    let Some(found) = found else {
+        return Vec::new();
+    };
+
+    let mut urls: Vec<Url> = found
+        .into_iter()
+        .filter(|u| Some(u) != favicon)
+        .take(MAX_HOMEPAGE_CANDIDATES)
+        .collect();
+    if let Some(root) = root_favicon(homepage) {
+        if Some(&root) != favicon && !urls.contains(&root) {
+            urls.push(root);
+        }
+    }
+    urls
+}
+
+/// Only conclude "no logo" when the homepage answered and nothing failed
+/// for a reason that may go away (timeouts, 5xx, rate limits).
+fn should_write_no_logo_marker(reachable: bool, any_transient: bool) -> bool {
+    reachable && !any_transient
+}
+
+fn is_transient(err: &Error) -> bool {
+    err.downcast_ref::<reqwest::Error>().is_some_and(|e| {
+        e.status().is_none_or(|s| {
+            s.is_server_error() || s == reqwest::StatusCode::TOO_MANY_REQUESTS
+        })
+    })
+}
+
+/// Deletes a temp file when dropped, so a cancelled load doesn't leave it behind.
+struct TmpFileGuard(std::path::PathBuf);
+
+impl Drop for TmpFileGuard {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -108,13 +154,15 @@ impl CoverRequest {
     }
 
     async fn compute_texture(&self) -> Result<gdk::Texture> {
-        let mut tried: Vec<Url> = Vec::new();
+        let mut any_transient = false;
 
         if let Some(favicon) = &self.favicon {
-            tried.push(favicon.clone());
             match self.download_texture(favicon).compat().await {
                 Ok(texture) => return self.store(texture).await,
-                Err(e) => debug!("Favicon {favicon} unusable: {}", e.root_cause()),
+                Err(e) => {
+                    debug!("Favicon {favicon} unusable: {}", e.root_cause());
+                    any_transient |= is_transient(&e);
+                }
             }
         }
 
@@ -127,26 +175,20 @@ impl CoverRequest {
         let candidates = self.homepage_candidates(homepage).compat().await;
         let reachable = candidates.is_some();
 
-        let candidates = candidates
-            .unwrap_or_default()
-            .into_iter()
-            .chain(root_favicon(homepage));
-        for url in candidates {
-            if tried.contains(&url) {
-                continue;
-            }
-            tried.push(url.clone());
-
+        for url in fallback_urls(self.favicon.as_ref(), candidates, homepage) {
             match self.download_texture(&url).compat().await {
                 Ok(texture) => {
                     debug!("Using logo {url} from homepage {homepage}");
                     return self.store(texture).await;
                 }
-                Err(e) => debug!("Logo candidate {url} unusable: {}", e.root_cause()),
+                Err(e) => {
+                    debug!("Logo candidate {url} unusable: {}", e.root_cause());
+                    any_transient |= is_transient(&e);
+                }
             }
         }
 
-        if reachable {
+        if should_write_no_logo_marker(reachable, any_transient) {
             cacache::write(&*path::CACHE, self.no_logo_key(), b"").await?;
         }
         Err(Error::msg(format!("No usable logo found on {homepage}")))
@@ -196,6 +238,10 @@ impl CoverRequest {
             glib::Priority::LOW,
         )
         .await?;
+        let _guard = tmp_file.path().map(TmpFileGuard);
+        // Rebound after the guard so the stream is dropped (closed) first;
+        // Windows can't delete a file that is still open.
+        let tmp_stream = tmp_stream;
         let written = tmp_stream
             .output_stream()
             .write_bytes_future(&glib::Bytes::from_owned(body), glib::Priority::LOW)
@@ -206,7 +252,6 @@ impl CoverRequest {
             Ok(_) => platform::load_texture(&tmp_file).await,
             Err(e) => Err(e.into()),
         };
-        let _ = tmp_file.delete_future(glib::Priority::LOW).await;
 
         self.thumbnail(texture?)
     }
@@ -394,5 +439,51 @@ mod tests {
     fn no_logo_marker_ttl() {
         assert!(no_logo_marker_fresh(Duration::from_secs(86400 * 6)));
         assert!(!no_logo_marker_fresh(Duration::from_secs(86400 * 7)));
+    }
+}
+
+#[cfg(test)]
+mod fallback_tests {
+    use super::*;
+
+    fn u(s: &str) -> Url {
+        Url::parse(s).unwrap()
+    }
+
+    #[test]
+    fn fallback_caps_homepage_candidates() {
+        let home = u("https://r.example/");
+        let found: Vec<Url> = (0..10).map(|i| u(&format!("https://r.example/{i}.png"))).collect();
+        let plan = fallback_urls(None, Some(found), &home);
+        assert_eq!(plan.len(), MAX_HOMEPAGE_CANDIDATES + 1);
+        assert_eq!(plan.last().unwrap().as_str(), "https://r.example/favicon.ico");
+    }
+
+    #[test]
+    fn fallback_unreachable_homepage_skips_root_favicon() {
+        assert!(fallback_urls(None, None, &u("https://dead.example/")).is_empty());
+    }
+
+    #[test]
+    fn fallback_skips_already_tried_favicon() {
+        let home = u("https://r.example/");
+        let fav = u("https://r.example/favicon.ico");
+        let plan = fallback_urls(Some(&fav), Some(vec![u("https://r.example/a.png")]), &home);
+        assert_eq!(plan, vec![u("https://r.example/a.png")]);
+    }
+
+    #[test]
+    fn marker_only_when_reachable_and_no_transient_failure() {
+        assert!(should_write_no_logo_marker(true, false));
+        assert!(!should_write_no_logo_marker(true, true));
+        assert!(!should_write_no_logo_marker(false, false));
+    }
+
+    #[test]
+    fn tmp_file_guard_removes_file_on_drop() {
+        let path = std::env::temp_dir().join("shortwave-guard-test.bin");
+        std::fs::write(&path, b"x").unwrap();
+        drop(TmpFileGuard(path.clone()));
+        assert!(!path.exists());
     }
 }
