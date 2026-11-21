@@ -102,6 +102,8 @@ mod imp {
             self.size.set(size);
 
             self.image.set_size_request(size, size);
+            // GtkImage draws paintables at icon size (16px) unless told otherwise
+            self.image.set_pixel_size(size);
             self.obj().set_size_request(size, size);
             self.placeholder_image.set_pixel_size(size.div_euclid(2));
 
@@ -242,7 +244,10 @@ mod imp {
 
                     self.is_loaded.set(true);
                     self.obj().notify_is_loaded();
-                } else if let Some(favicon_url) = station.metadata().favicon {
+                } else if station.metadata().favicon.is_some()
+                    || station.metadata().homepage.is_some()
+                {
+                    let metadata = station.metadata();
                     let mut cover_loader = SwApplication::default().cover_loader();
 
                     let cancellable = gio::Cancellable::new();
@@ -250,7 +255,12 @@ mod imp {
 
                     let size = MAX_COVER_SIZE * self.obj().scale_factor();
                     let res = cover_loader
-                        .load_cover(&favicon_url, size, cancellable.clone())
+                        .load_station_cover(
+                            metadata.favicon.as_ref(),
+                            metadata.homepage.as_ref(),
+                            size,
+                            cancellable.clone(),
+                        )
                         .await;
 
                     match res {
@@ -262,7 +272,8 @@ mod imp {
                             self.obj().notify_is_loaded();
                         }
                         Err(e) => {
-                            if e.root_cause().to_string() != "cancelled" {
+                            let cause = e.root_cause().to_string();
+                            if cause != "cancelled" && cause != "no logo" {
                                 warn!(
                                     "Unable to load cover for station {:?} ({:?}): {}",
                                     station.title(),

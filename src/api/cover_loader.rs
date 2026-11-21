@@ -31,20 +31,32 @@ use url::Url;
 
 static HTTP_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
     reqwest::ClientBuilder::new()
+        .user_agent(USER_AGENT.as_str())
         .timeout(Duration::from_secs(5))
         .build()
         .unwrap()
 });
 
+/// How long a station whose homepage had no usable logo is left alone.
+const NO_LOGO_TTL: Duration = Duration::from_secs(86400 * 7);
+/// How much of a homepage is scanned for icon links.
+const HOMEPAGE_READ_LIMIT: usize = 512 * 1024;
+
+use super::client::USER_AGENT;
+use super::logo_discovery::{icon_candidates, root_favicon};
 use crate::{config, path, platform};
+
+fn no_logo_marker_fresh(age: Duration) -> bool {
+    age < NO_LOGO_TTL
+}
+
 #[derive(Debug, Clone)]
 struct CoverRequest {
-    favicon_url: Url,
+    favicon: Option<Url>,
+    homepage: Option<Url>,
     size: i32,
     sender: Sender<Result<gdk::Texture>>,
     cancellable: gio::Cancellable,
-    tmp_file: gio::File,
-    tmp_stream: gio::FileIOStream,
 }
 
 impl CoverRequest {
@@ -55,8 +67,18 @@ impl CoverRequest {
             Err(_) => Err(Error::msg("cancelled")),
         };
 
-        let _ = self.delete_tmp_file().await;
         self.sender.send(msg).await.unwrap();
+    }
+
+    /// Cache key; the favicon wins so covers cached before homepage
+    /// fallback existed stay valid.
+    fn key(&self) -> String {
+        let url = self.favicon.as_ref().or(self.homepage.as_ref());
+        format!("{}@{}", url.map(Url::as_str).unwrap_or_default(), self.size)
+    }
+
+    fn no_logo_key(&self) -> String {
+        format!("nologo:{}", self.key())
     }
 
     async fn cover_texture(&self) -> Result<gdk::Texture> {
@@ -64,36 +86,138 @@ impl CoverRequest {
             return Ok(texture);
         }
 
+        if let Ok(Some(md)) = cacache::metadata(&*path::CACHE, self.no_logo_key()).await {
+            let now = SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis();
+            let age = Duration::from_millis(now.saturating_sub(md.time).try_into().unwrap_or(0));
+            if no_logo_marker_fresh(age) {
+                return Err(Error::msg("no logo"));
+            }
+        }
+
         self.compute_texture().await
     }
 
     async fn cached_texture(&self) -> Result<gdk::Texture> {
-        let key = format!("{}@{}", self.favicon_url, self.size);
-        let data = cacache::read(&*path::CACHE, key).await?;
+        let data = cacache::read(&*path::CACHE, self.key()).await?;
         let bytes = glib::Bytes::from_owned(data);
 
         Ok(gdk::Texture::from_bytes(&bytes)?)
     }
 
     async fn compute_texture(&self) -> Result<gdk::Texture> {
-        let (cover_texture, cover_bytes) = self.cover_bytes().await?;
+        let mut tried: Vec<Url> = Vec::new();
 
-        let key = format!("{}@{}", self.favicon_url, self.size);
-        cacache::write_with_algo(cacache::Algorithm::Xxh3, &*path::CACHE, key, &cover_bytes)
-            .await?;
+        if let Some(favicon) = &self.favicon {
+            tried.push(favicon.clone());
+            match self.download_texture(favicon).compat().await {
+                Ok(texture) => return self.store(texture).await,
+                Err(e) => debug!("Favicon {favicon} unusable: {}", e.root_cause()),
+            }
+        }
 
-        Ok(cover_texture)
+        let Some(homepage) = &self.homepage else {
+            return Err(Error::msg("No usable favicon"));
+        };
+
+        // None: the homepage couldn't be reached at all (e.g. offline), so
+        // don't conclude that the station has no logo.
+        let candidates = self.homepage_candidates(homepage).compat().await;
+        let reachable = candidates.is_some();
+
+        let candidates = candidates
+            .unwrap_or_default()
+            .into_iter()
+            .chain(root_favicon(homepage));
+        for url in candidates {
+            if tried.contains(&url) {
+                continue;
+            }
+            tried.push(url.clone());
+
+            match self.download_texture(&url).compat().await {
+                Ok(texture) => {
+                    debug!("Using logo {url} from homepage {homepage}");
+                    return self.store(texture).await;
+                }
+                Err(e) => debug!("Logo candidate {url} unusable: {}", e.root_cause()),
+            }
+        }
+
+        if reachable {
+            cacache::write(&*path::CACHE, self.no_logo_key(), b"").await?;
+        }
+        Err(Error::msg(format!("No usable logo found on {homepage}")))
     }
 
-    async fn cover_bytes(&self) -> Result<(gdk::Texture, Vec<u8>)> {
-        self.download_tmp_file().compat().await?;
+    /// Icon URLs found on the homepage; `None` if it couldn't be fetched.
+    async fn homepage_candidates(&self, homepage: &Url) -> Option<Vec<Url>> {
+        let mut response = HTTP_CLIENT
+            .get(homepage.as_str())
+            .send()
+            .await
+            .ok()?;
+        if !response.status().is_success() {
+            return Some(Vec::new());
+        }
 
-        let texture = platform::load_texture(&self.tmp_file).await?;
+        let page_url = response.url().clone();
+        let mut html = Vec::new();
+        while html.len() < HOMEPAGE_READ_LIMIT {
+            match response.chunk().await {
+                Ok(Some(chunk)) => html.extend_from_slice(&chunk),
+                Ok(None) => break,
+                // Use whatever arrived before the error
+                Err(_) => break,
+            }
+        }
+        html.truncate(HOMEPAGE_READ_LIMIT);
 
+        Some(icon_candidates(&String::from_utf8_lossy(&html), &page_url))
+    }
+
+    /// Downloads and decodes an image, rendered as a `size`² thumbnail.
+    async fn download_texture(&self, url: &Url) -> Result<gdk::Texture> {
+        let body = HTTP_CLIENT
+            .get(url.as_str())
+            .send()
+            .await?
+            .error_for_status()?
+            .bytes()
+            .await?;
+
+        // We have to write the data to the disk in order to be able to load them using Glycin
+        // TODO: Load bytes directly
+        // TODO: https://gitlab.gnome.org/GNOME/glycin/-/issues/98
+        let (tmp_file, tmp_stream) = File::new_tmp_future(
+            Some(&format!("{}-Cover-XXXXXX", config::NAME)),
+            glib::Priority::LOW,
+        )
+        .await?;
+        let written = tmp_stream
+            .output_stream()
+            .write_bytes_future(&glib::Bytes::from_owned(body), glib::Priority::LOW)
+            .await;
+        let _ = tmp_stream.close_future(glib::Priority::LOW).await;
+
+        let texture = match written {
+            Ok(_) => platform::load_texture(&tmp_file).await,
+            Err(e) => Err(e.into()),
+        };
+        let _ = tmp_file.delete_future(glib::Priority::LOW).await;
+
+        self.thumbnail(texture?)
+    }
+
+    fn thumbnail(&self, texture: gdk::Texture) -> Result<gdk::Texture> {
         let snapshot = gtk::Snapshot::new();
         snapshot_thumbnail(&snapshot, texture, self.size as f32);
 
-        let node = snapshot.to_node().unwrap();
+        let node = snapshot
+            .to_node()
+            .ok_or_else(|| Error::msg("Empty thumbnail"))?;
         let renderer = gsk::CairoRenderer::new();
         let display = gdk::Display::default().expect("No default display available");
         renderer.realize_for_display(&display)?;
@@ -102,32 +226,15 @@ impl CoverRequest {
         let texture = renderer.render_texture(node, Some(&rect));
         renderer.unrealize();
 
-        let png_bytes = texture.save_to_png_bytes().to_vec();
-        Ok((texture, png_bytes))
+        Ok(texture)
     }
 
-    async fn download_tmp_file(&self) -> Result<()> {
-        let request = HTTP_CLIENT.get(self.favicon_url.as_str()).build()?;
-        let response = HTTP_CLIENT.execute(request).await?;
-        let body_bytes = response.bytes().await?;
-
-        // We have to write the data to the disk in order to be able to load them using Glycin
-        // TODO: Load bytes directly
-        // TODO: https://gitlab.gnome.org/GNOME/glycin/-/issues/98
-        let bytes = glib::Bytes::from_owned(body_bytes);
-        self.tmp_stream
-            .output_stream()
-            .write_bytes_future(&bytes, glib::Priority::LOW)
+    async fn store(&self, texture: gdk::Texture) -> Result<gdk::Texture> {
+        let png_bytes = texture.save_to_png_bytes().to_vec();
+        cacache::write_with_algo(cacache::Algorithm::Xxh3, &*path::CACHE, self.key(), &png_bytes)
             .await?;
 
-        Ok(())
-    }
-
-    async fn delete_tmp_file(&self) -> Result<()> {
-        self.tmp_stream.close_future(glib::Priority::LOW).await?;
-        self.tmp_file.delete_future(glib::Priority::LOW).await?;
-
-        Ok(())
+        Ok(texture)
     }
 }
 
@@ -178,21 +285,31 @@ impl CoverLoader {
         size: i32,
         cancellable: gio::Cancellable,
     ) -> Result<gdk::Texture> {
+        self.load_station_cover(Some(favicon_url), None, size, cancellable)
+            .await
+    }
+
+    /// Loads a station's cover from its favicon, falling back to icons found
+    /// on its homepage.
+    pub async fn load_station_cover(
+        &mut self,
+        favicon: Option<&Url>,
+        homepage: Option<&Url>,
+        size: i32,
+        cancellable: gio::Cancellable,
+    ) -> Result<gdk::Texture> {
+        if favicon.is_none() && homepage.is_none() {
+            return Err(Error::msg("Station has neither favicon nor homepage"));
+        }
+
         let (sender, receiver) = async_channel::bounded(1);
 
-        let (tmp_file, tmp_stream) = File::new_tmp_future(
-            Some(&format!("{}-Cover-XXXXXX", config::NAME)),
-            glib::Priority::LOW,
-        )
-        .await?;
-
         let request = CoverRequest {
-            favicon_url: favicon_url.clone(),
+            favicon: favicon.cloned(),
+            homepage: homepage.cloned(),
             size,
             sender,
             cancellable: cancellable.clone(),
-            tmp_file,
-            tmp_stream,
         };
         self.request_sender
             .send(request)
@@ -267,4 +384,15 @@ fn snapshot_thumbnail(snapshot: &gtk::Snapshot, cover: gdk::Texture, size: f32) 
 
     snapshot.append_scaled_texture(&cover, gsk::ScalingFilter::Trilinear, &cover_rect);
     snapshot.pop();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn no_logo_marker_ttl() {
+        assert!(no_logo_marker_fresh(Duration::from_secs(86400 * 6)));
+        assert!(!no_logo_marker_fresh(Duration::from_secs(86400 * 7)));
+    }
 }

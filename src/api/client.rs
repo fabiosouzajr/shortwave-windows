@@ -33,7 +33,7 @@ use crate::app::SwApplication;
 use crate::config;
 use crate::settings::{settings_manager, Key};
 
-static USER_AGENT: LazyLock<String> = LazyLock::new(|| {
+pub(crate) static USER_AGENT: LazyLock<String> = LazyLock::new(|| {
     format!(
         "{}/{}-{}",
         config::PKGNAME,
