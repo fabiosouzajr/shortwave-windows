@@ -22,6 +22,8 @@ use inflector::Inflector;
 use serde::{Deserialize, Deserializer, Serializer};
 use url::Url;
 
+use crate::i18n::i18n_f;
+
 #[derive(glib::Boxed, Default, Debug, Clone, Serialize, Deserialize)]
 #[boxed_type(name = "SwStationMetadata")]
 pub struct StationMetadata {
@@ -77,6 +79,22 @@ impl StationMetadata {
         }
         formatted.split_at(2).1.to_string()
     }
+
+    /// Codec and bitrate for display, e.g. `AAC · 128 kbit/s`.
+    /// Empty if neither is known.
+    pub fn formatted_quality(&self) -> String {
+        let mut parts = Vec::new();
+
+        let codec = self.codec.trim();
+        if !codec.is_empty() {
+            parts.push(codec.to_string());
+        }
+        if self.bitrate > 0 {
+            parts.push(i18n_f("{} kbit/s", &[&self.bitrate.to_string()]));
+        }
+
+        parts.join(" · ")
+    }
 }
 
 impl StationMetadata {
@@ -108,4 +126,43 @@ where
 {
     let s = String::deserialize(deserializer)?;
     Ok(Url::from_str(&s).ok())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn quality(codec: &str, bitrate: i32) -> String {
+        StationMetadata {
+            codec: codec.to_string(),
+            bitrate,
+            ..Default::default()
+        }
+        .formatted_quality()
+    }
+
+    #[test]
+    fn quality_codec_and_bitrate() {
+        assert_eq!(quality("AAC", 128), "AAC · 128 kbit/s");
+    }
+
+    #[test]
+    fn quality_codec_only() {
+        assert_eq!(quality("MP3", 0), "MP3");
+    }
+
+    #[test]
+    fn quality_bitrate_only() {
+        assert_eq!(quality("", 96), "96 kbit/s");
+    }
+
+    #[test]
+    fn quality_nothing_known() {
+        assert_eq!(quality("", 0), "");
+    }
+
+    #[test]
+    fn quality_whitespace_codec_is_empty() {
+        assert_eq!(quality("  ", 0), "");
+    }
 }

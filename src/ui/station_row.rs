@@ -41,6 +41,8 @@ mod imp {
         #[template_child]
         subtitle_label: TemplateChild<gtk::Label>,
         #[template_child]
+        quality_label: TemplateChild<gtk::Label>,
+        #[template_child]
         station_cover: TemplateChild<SwStationCover>,
         #[template_child]
         local_image: TemplateChild<gtk::Image>,
@@ -115,6 +117,11 @@ mod imp {
 
         fn set_metadata(&self, metadata: StationMetadata) {
             self.station_label.set_text(&metadata.name);
+
+            let quality = metadata.formatted_quality();
+            self.quality_label.set_text(&quality);
+            self.quality_label.set_visible(!quality.is_empty());
+
             let mut subtitle = metadata.country.to_title_case();
 
             if subtitle.is_empty() {
