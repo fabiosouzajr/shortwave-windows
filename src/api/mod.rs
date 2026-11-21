@@ -20,6 +20,7 @@ static STATS: &str = "json/stats";
 
 pub mod client;
 mod cover_loader;
+mod logo_discovery;
 mod error;
 mod station;
 mod station_metadata;
