@@ -25,6 +25,7 @@ use gtk::{glib, CompositeTemplate};
 use inflector::Inflector;
 
 use crate::api::StationMetadata;
+use crate::i18n::i18n;
 use crate::api::SwStation;
 use crate::ui::SwStationCover;
 use crate::SwApplication;
@@ -41,7 +42,17 @@ mod imp {
         #[template_child]
         subtitle_label: TemplateChild<gtk::Label>,
         #[template_child]
-        quality_label: TemplateChild<gtk::Label>,
+        quality_box: TemplateChild<gtk::Box>,
+        #[template_child]
+        codec_image: TemplateChild<gtk::Image>,
+        #[template_child]
+        codec_label: TemplateChild<gtk::Label>,
+        #[template_child]
+        quality_separator: TemplateChild<gtk::Label>,
+        #[template_child]
+        bars_box: TemplateChild<gtk::Box>,
+        #[template_child]
+        bitrate_label: TemplateChild<gtk::Label>,
         #[template_child]
         station_cover: TemplateChild<SwStationCover>,
         #[template_child]
@@ -118,10 +129,43 @@ mod imp {
         fn set_metadata(&self, metadata: StationMetadata) {
             self.station_label.set_text(&metadata.name);
 
-            // Interim: replaced by the codec icon and bitrate meter
-            let quality = metadata.display_codec().unwrap_or_default();
-            self.quality_label.set_text(&quality);
-            self.quality_label.set_visible(!quality.is_empty());
+            let codec = metadata.display_codec();
+            let has_codec = codec.is_some();
+            let has_bitrate = metadata.bitrate > 0;
+
+            if let Some(codec) = codec {
+                let icon = if metadata.is_lossless() {
+                    "codec-lossless-symbolic"
+                } else {
+                    "codec-lossy-symbolic"
+                };
+                self.codec_image.set_icon_name(Some(icon));
+                self.codec_label.set_text(&codec);
+            }
+            self.codec_image.set_visible(has_codec);
+            self.codec_label.set_visible(has_codec);
+
+            if has_bitrate {
+                let level = metadata.bitrate_level();
+                let mut bar = self.bars_box.first_child();
+                let mut i = 0;
+                while let Some(widget) = bar {
+                    if i < level {
+                        widget.add_css_class("lit");
+                    } else {
+                        widget.remove_css_class("lit");
+                    }
+                    bar = widget.next_sibling();
+                    i += 1;
+                }
+                self.bitrate_label
+                    .set_markup(&bitrate_markup(&i18n("{} kbit/s"), metadata.bitrate));
+            }
+            self.bars_box.set_visible(has_bitrate);
+            self.bitrate_label.set_visible(has_bitrate);
+
+            self.quality_separator.set_visible(has_codec && has_bitrate);
+            self.quality_box.set_visible(has_codec || has_bitrate);
 
             let mut subtitle = metadata.country.to_title_case();
 
@@ -145,5 +189,45 @@ glib::wrapper! {
 impl SwStationRow {
     pub fn new(station: &SwStation) -> Self {
         glib::Object::builder().property("station", station).build()
+    }
+}
+
+/// Pango markup for a translated bitrate template such as `{} kbit/s`: the
+/// number in a monospace font, the surrounding unit text smaller.
+fn bitrate_markup(template: &str, bitrate: i32) -> String {
+    let unit = |text: &str| {
+        if text.is_empty() {
+            String::new()
+        } else {
+            format!("<span size=\"smaller\">{}</span>", glib::markup_escape_text(text))
+        }
+    };
+    let (before, after) = template.split_once("{}").unwrap_or(("", template));
+
+    format!(
+        "{}<span font_family=\"monospace\">{bitrate}</span>{}",
+        unit(before),
+        unit(after)
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bitrate_markup_monospace_number_small_unit() {
+        assert_eq!(
+            bitrate_markup("{} kbit/s", 128),
+            "<span font_family=\"monospace\">128</span><span size=\"smaller\"> kbit/s</span>"
+        );
+    }
+
+    #[test]
+    fn bitrate_markup_escapes_translation() {
+        assert_eq!(
+            bitrate_markup("<{}> & kb", 64),
+            "<span size=\"smaller\">&lt;</span><span font_family=\"monospace\">64</span><span size=\"smaller\">&gt; &amp; kb</span>"
+        );
     }
 }

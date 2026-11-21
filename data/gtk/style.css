@@ -205,3 +205,35 @@ entry.discover {
 .card.discover {
   background-color: #fcd85e;
 }
+/* Station card */
+.station-name {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.station-quality {
+  font-size: 12px;
+}
+
+.station-quality .codec {
+  font-weight: 700;
+  opacity: 0.75;
+}
+
+.station-quality .separator-text {
+  opacity: 0.3;
+}
+
+.station-quality .bar {
+  min-width: 3px;
+  border-radius: 1px;
+  background: alpha(currentColor, 0.15);
+}
+
+.station-quality .bar.lit {
+  background: var(--accent-color);
+}
+
+.station-quality .bitrate {
+  opacity: 0.75;
+}
