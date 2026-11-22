@@ -25,6 +25,7 @@ use gtk::{glib, CompositeTemplate};
 use crate::app::SwApplication;
 use crate::audio::SwPlayer;
 use crate::audio::SwTrack;
+use crate::i18n::i18n;
 use crate::ui::{
     SwDeviceIndicator, SwRecordingIndicator, SwStationCover, SwTrackRow, SwVolumeControl,
 };
@@ -48,6 +49,8 @@ mod imp {
         past_tracks_stack: TemplateChild<gtk::Stack>,
         #[template_child]
         past_tracks_listbox: TemplateChild<gtk::ListBox>,
+        #[template_child]
+        library_button: TemplateChild<gtk::Button>,
 
         #[property(get, set)]
         pub show_gadget_button: Cell<bool>,
@@ -96,8 +99,24 @@ mod imp {
                 }
             ));
 
+            player.connect_station_notify(clone!(
+                #[weak(rename_to = imp)]
+                self,
+                move |_| imp.update_library_button()
+            ));
+
+            SwApplication::default()
+                .library()
+                .model()
+                .connect_items_changed(clone!(
+                    #[weak(rename_to = imp)]
+                    self,
+                    move |_, _, _, _| imp.update_library_button()
+                ));
+
             self.obj().set_show_gadget_button(true);
             self.update_past_tracks_stack();
+            self.update_library_button();
         }
     }
 
@@ -116,6 +135,38 @@ mod imp {
 
         fn player(&self) -> SwPlayer {
             SwApplication::default().player()
+        }
+
+        fn update_library_button(&self) {
+            let in_library = self
+                .obj()
+                .player()
+                .station()
+                .is_some_and(|s| SwApplication::default().library().contains_station(&s));
+
+            let (icon, tooltip) = if in_library {
+                ("heart-filled-symbolic", i18n("In Library"))
+            } else {
+                ("heart-outline-thick-symbolic", i18n("Add to Library"))
+            };
+            self.library_button.set_icon_name(icon);
+            self.library_button.set_tooltip_text(Some(&tooltip));
+            self.library_button.set_sensitive(!in_library);
+        }
+
+        #[template_callback]
+        fn library_button_clicked(&self) {
+            let Some(station) = self.obj().player().station() else {
+                return;
+            };
+            let app = SwApplication::default();
+            if app.library().contains_station(&station) {
+                return;
+            }
+
+            app.library().add_station(station);
+            app.application_window()
+                .show_notification(&i18n("Station added"));
         }
 
         #[template_callback]

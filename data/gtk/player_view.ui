@@ -211,6 +211,17 @@
                               </object>
                             </child>
                             <child>
+                              <object class="GtkButton" id="library_button">
+                                <property name="valign">center</property>
+                                <property name="icon_name">heart-outline-thick-symbolic</property>
+                                <property name="tooltip_text" translatable="yes">Add to Library</property>
+                                <signal name="clicked" handler="library_button_clicked" swapped="true"/>
+                                <style>
+                                  <class name="circular"/>
+                                </style>
+                              </object>
+                            </child>
+                            <child>
                               <object class="GtkButton" id="details_button">
                                 <property name="tooltip_text" translatable="yes">Show Station Details</property>
                                 <property name="action_name">player.show-station-details</property>
