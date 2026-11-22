@@ -61,6 +61,7 @@ in-app status):
 | Per-machine install + firewall rule | Untested (needs UAC) |
 | Hardware media keys | Not pressed physically (SMTC path verified) |
 | Windows Sandbox / VM clean test | Not done; PATH-stripped test used instead |
+| CI release job (`release`) | Script checks pass in the dry-run test and the workflow is accepted by GitHub (run 45045081441: `release` correctly skipped on a branch push). **Never run on a real tag**: artifact download, `gh release create` and permissions are unverified until the next tag |
 | Features added 2026-11-21/22 (see "What works") | Unit tests and builds pass; not yet recorded as checked in the running app: flag rendering, heart states, search filters and the country search, dropdown labels, language switch |
 | Translations of the 2026-11-22 strings | Search filter, heart and "Station added" strings are untranslated in all languages |
 | Dark theme switch | Light verified; libadwaita reports system colour-scheme support |
@@ -105,6 +106,28 @@ Port-specific:
    `gettext-tools` (not `gettext`).
 10. Data directory keeps upstream's casing: `%LOCALAPPDATA%\Shortwave`.
 11. The CI Linux job uses Fedora 42 instead of the latest Fedora (OpenSSL 4).
+
+## Release process
+
+Versions are the upstream version plus `-win.N` for the port's own releases;
+the tag is `v` + version. History:
+
+| Release | Published | How |
+|---|---|---|
+| `5.0.0-win.1` (2026-11-22) | [Releases page](https://github.com/fabiosouzajr/shortwave-windows/releases/tag/v5.0.0-win.1) | By hand: built locally (`build.ps1`, `bundle.ps1`, `installer.ps1`), tagged, `gh release create` with the installer and zip |
+
+Later releases are published by CI: pushing a `v<version>` tag runs the
+workflow, and its `release` job publishes the installer and zip from the
+Windows job once the Windows and Linux jobs pass. It refuses to publish if the
+built files don't carry the tag's version or `docs/releases/<version>.md` is
+missing (`build-aux/publish-release.sh`, tested by
+`build-aux/test-publish-release.sh`). Steps: set the version in `meson.build`,
+write the release notes, move the `Unreleased` changelog entries under the new
+version, push to `main`, then tag and push the tag. See
+[BUILDING-WINDOWS.md](BUILDING-WINDOWS.md#releasing).
+
+Release notes list anything in the "Not working / not tested" table above
+that a user would hit as a known issue; keep the two in step.
 
 ## Merging future upstream releases
 
