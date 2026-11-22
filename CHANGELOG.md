@@ -4,6 +4,15 @@ Changes in the unofficial Windows port of
 [Shortwave](https://gitlab.gnome.org/World/Shortwave). Each release names the
 upstream version it is based on; `-win.N` counts the port's own releases.
 
+## [Unreleased]
+
+### Added
+- Releases are now published automatically: pushing a version tag builds and
+  tests the app on Windows and Linux, then publishes the GitHub Release with
+  the installer and the portable zip. It refuses to publish if the built files
+  don't carry the tag's version or the release notes are missing. See
+  [Releasing](docs/BUILDING-WINDOWS.md#releasing).
+
 ## [5.0.0-win.1] - 2026-11-22
 
 First release of the Windows port, based on Shortwave 5.0.0.
@@ -73,4 +82,5 @@ First release of the Windows port, based on Shortwave 5.0.0.
   station isn't restored if it isn't in your library.
 - The bitrate filter leaves out stations that don't report a bitrate.
 
+[Unreleased]: https://github.com/fabiosouzajr/shortwave-windows/compare/v5.0.0-win.1...main
 [5.0.0-win.1]: https://github.com/fabiosouzajr/shortwave-windows/releases/tag/v5.0.0-win.1
