@@ -14,6 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use std::collections::HashSet;
 use std::net::IpAddr;
 use std::rc::Rc;
 use std::sync::LazyLock;
@@ -21,6 +22,7 @@ use std::time::Duration;
 
 use async_compat::Compat;
 use async_std_resolver::{config as rconfig, resolver, resolver_from_system_conf};
+use futures_util::future::join;
 use rand::prelude::SliceRandom;
 use rand::thread_rng;
 use reqwest::header::{self, HeaderMap};
@@ -58,17 +60,73 @@ static HTTP_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(|| {
 });
 
 pub async fn station_request(request: StationRequest) -> Result<Vec<SwStation>, Error> {
-    let url = build_url(STATION_SEARCH, Some(&request.url_encode()))?;
+    Ok(to_stations(request_metadata(request).await?))
+}
 
+/// Stations matching `filters`; with `text`, stations whose name *or* genre
+/// tag matches it (two concurrent requests, merged).
+pub async fn search_stations(
+    text: Option<String>,
+    filters: StationRequest,
+) -> Result<Vec<SwStation>, Error> {
+    let Some(text) = text else {
+        return station_request(filters).await;
+    };
+
+    let by_name = StationRequest {
+        name: Some(text.clone()),
+        ..filters.clone()
+    };
+    let by_tag = StationRequest {
+        tag: Some(text),
+        ..filters
+    };
+
+    let metadata = match join(request_metadata(by_name), request_metadata(by_tag)).await {
+        (Ok(a), Ok(b)) => merge_by_votes(a, b),
+        (Ok(found), Err(e)) | (Err(e), Ok(found)) => {
+            warn!("Partial search failure: {}", e);
+            found
+        }
+        (Err(e), Err(_)) => return Err(e),
+    };
+
+    Ok(to_stations(metadata))
+}
+
+pub async fn countries() -> Result<Vec<Country>, Error> {
+    let url = build_url(COUNTRIES, None)?;
     let request = HTTP_CLIENT.get(url.as_ref()).build().map_err(Rc::new)?;
-    let stations_md = send_request_compat::<Vec<StationMetadata>>(request).await?;
+    let mut countries = send_request_compat::<Vec<Country>>(request).await?;
 
-    let stations: Vec<SwStation> = stations_md
+    countries.retain(|c| !c.iso_3166_1.is_empty());
+    countries.sort_by_key(|c| c.name.to_lowercase());
+    Ok(countries)
+}
+
+async fn request_metadata(request: StationRequest) -> Result<Vec<StationMetadata>, Error> {
+    let url = build_url(STATION_SEARCH, Some(&request.url_encode()))?;
+    let request = HTTP_CLIENT.get(url.as_ref()).build().map_err(Rc::new)?;
+    send_request_compat::<Vec<StationMetadata>>(request).await
+}
+
+fn to_stations(metadata: Vec<StationMetadata>) -> Vec<SwStation> {
+    metadata
         .into_iter()
         .map(|metadata| SwStation::new(&metadata.stationuuid.clone(), false, metadata, None))
-        .collect();
+        .collect()
+}
 
-    Ok(stations)
+/// Concatenate, keep the first entry per station UUID, most votes first.
+fn merge_by_votes(a: Vec<StationMetadata>, b: Vec<StationMetadata>) -> Vec<StationMetadata> {
+    let mut seen = HashSet::new();
+    let mut merged: Vec<StationMetadata> = a
+        .into_iter()
+        .chain(b)
+        .filter(|m| seen.insert(m.stationuuid.clone()))
+        .collect();
+    merged.sort_by_key(|m| std::cmp::Reverse(m.votes));
+    merged
 }
 
 pub async fn station_metadata_by_uuid(uuids: Vec<String>) -> Result<Vec<StationMetadata>, Error> {
@@ -183,4 +241,24 @@ async fn send_request<T: de::DeserializeOwned>(request: Request) -> Result<T, Er
 
 async fn send_request_compat<T: de::DeserializeOwned>(request: Request) -> Result<T, Error> {
     Compat::new(async move { send_request(request).await }).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn md(uuid: &str, votes: i32) -> StationMetadata {
+        StationMetadata {
+            stationuuid: uuid.into(),
+            votes,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn merge_dedups_and_sorts_by_votes() {
+        let out = merge_by_votes(vec![md("a", 5), md("b", 50)], vec![md("b", 50), md("c", 20)]);
+        let ids: Vec<_> = out.iter().map(|m| m.stationuuid.as_str()).collect();
+        assert_eq!(ids, ["b", "c", "a"]);
+    }
 }

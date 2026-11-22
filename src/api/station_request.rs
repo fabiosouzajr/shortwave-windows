@@ -27,6 +27,7 @@ pub struct StationRequest {
     pub language_exact: Option<bool>,
     pub tag: Option<String>,
     pub tag_exact: Option<bool>,
+    pub codec: Option<String>,
     pub bitrate_min: Option<u32>,
     pub bitrate_max: Option<u32>,
     pub has_geo_info: Option<bool>,
@@ -44,6 +45,23 @@ impl StationRequest {
         Self {
             name,
             limit: Some(limit),
+            order: Some(String::from("votes")),
+            reverse: Some(true),
+            ..Self::default()
+        }
+    }
+
+    /// Search filters with the ordering every search uses (most votes first).
+    pub fn filtered(
+        countrycode: Option<String>,
+        codec: Option<String>,
+        bitrate_min: Option<u32>,
+    ) -> Self {
+        Self {
+            countrycode,
+            codec,
+            bitrate_min,
+            limit: Some(1000),
             order: Some(String::from("votes")),
             reverse: Some(true),
             ..Self::default()
@@ -69,6 +87,7 @@ impl Default for StationRequest {
             language_exact: None,
             tag: None,
             tag_exact: None,
+            codec: None,
             bitrate_min: None,
             bitrate_max: None,
             has_geo_info: None,
@@ -79,6 +98,36 @@ impl Default for StationRequest {
             offset: None,
             limit: None,
             hidebroken: Some(true),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn codec_is_url_encoded() {
+        let r = StationRequest {
+            codec: Some("AAC+".into()),
+            ..Default::default()
+        };
+        assert!(r.url_encode().contains("codec=AAC%2B"));
+    }
+
+    #[test]
+    fn filtered_sets_votes_order_and_limit() {
+        let r = StationRequest::filtered(Some("BR".into()), Some("FLAC".into()), Some(128));
+        let q = r.url_encode();
+        for part in [
+            "countrycode=BR",
+            "codec=FLAC",
+            "bitrate_min=128",
+            "limit=1000",
+            "order=votes",
+            "reverse=true",
+        ] {
+            assert!(q.contains(part), "{q} missing {part}");
         }
     }
 }

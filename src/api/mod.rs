@@ -17,8 +17,10 @@
 static STATION_SEARCH: &str = "json/stations/search";
 static STATION_BY_UUID: &str = "json/stations/byuuid";
 static STATS: &str = "json/stats";
+static COUNTRIES: &str = "json/countries";
 
 pub mod client;
+mod country;
 mod cover_loader;
 mod logo_discovery;
 mod error;
@@ -29,6 +31,7 @@ mod station_request;
 mod station_sorter;
 mod stats;
 
+pub use country::Country;
 pub use cover_loader::CoverLoader;
 pub use error::Error;
 pub use station::SwStation;
