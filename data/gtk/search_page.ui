@@ -10,22 +10,51 @@
         </child>
         <child type="top">
           <object class="AdwClamp">
-            <property name="maximum_size">400</property>
+            <property name="maximum_size">600</property>
             <property name="margin_start">12</property>
             <property name="margin_end">12</property>
             <property name="margin_top">9</property>
             <property name="margin_bottom">9</property>
             <child>
-              <object class="GtkSearchEntry" id="search_entry">
-                <property name="hexpand">True</property>
-                <property name="search_delay">750</property>
-                <property name="sensitive">False</property>
-                <property name="tooltip_text" translatable="yes">Search</property>
-                <property name="placeholder_text" translatable="yes">Search stations</property>
-                <signal name="search_changed" handler="search_changed" swapped="true"/>
-                <style>
-                  <class name="discover"/>
-                </style>
+              <object class="GtkBox">
+                <property name="orientation">vertical</property>
+                <property name="spacing">6</property>
+                <child>
+                  <object class="GtkSearchEntry" id="search_entry">
+                    <property name="hexpand">True</property>
+                    <property name="search_delay">750</property>
+                    <property name="sensitive">False</property>
+                    <property name="tooltip_text" translatable="yes">Search</property>
+                    <property name="placeholder_text" translatable="yes">Search stations or genres</property>
+                    <signal name="search_changed" handler="search_changed" swapped="true"/>
+                    <style>
+                      <class name="discover"/>
+                    </style>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkBox" id="filter_box">
+                    <property name="spacing">6</property>
+                    <property name="homogeneous">True</property>
+                    <property name="visible">False</property>
+                    <child>
+                      <object class="GtkDropDown" id="country_dropdown">
+                        <property name="enable_search">True</property>
+                        <property name="tooltip_text" translatable="yes">Country</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkDropDown" id="codec_dropdown">
+                        <property name="tooltip_text" translatable="yes">Codec</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkDropDown" id="bitrate_dropdown">
+                        <property name="tooltip_text" translatable="yes">Bitrate</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
               </object>
             </child>
           </object>

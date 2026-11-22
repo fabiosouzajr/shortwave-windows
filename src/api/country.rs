@@ -19,5 +19,4 @@
 pub struct Country {
     pub name: String,
     pub iso_3166_1: String,
-    pub stationcount: u32,
 }

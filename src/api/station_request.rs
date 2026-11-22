@@ -41,16 +41,6 @@ pub struct StationRequest {
 }
 
 impl StationRequest {
-    pub fn search_for_name(name: Option<String>, limit: u32) -> Self {
-        Self {
-            name,
-            limit: Some(limit),
-            order: Some(String::from("votes")),
-            reverse: Some(true),
-            ..Self::default()
-        }
-    }
-
     /// Search filters with the ordering every search uses (most votes first).
     pub fn filtered(
         countrycode: Option<String>,

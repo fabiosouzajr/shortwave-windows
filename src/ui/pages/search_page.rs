@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 
 use adw::prelude::*;
 use adw::subclass::prelude::*;
@@ -22,8 +22,29 @@ use glib::{clone, subclass};
 use gtk::{glib, CompositeTemplate};
 use rand::seq::SliceRandom;
 
-use crate::api::{client, Error, StationRequest, SwStation, SwStationModel};
+use crate::api::{client, Country, Error, StationRequest, SwStation, SwStationModel};
+use crate::i18n::{i18n, i18n_f};
 use crate::ui::{DisplayError, SwStationDialog, SwStationRow};
+
+/// Codec filter values, exactly as radio-browser stores them (exact match).
+const CODECS: [&str; 5] = ["MP3", "AAC", "AAC+", "OGG", "FLAC"];
+/// Minimum bitrate filter values in kbit/s.
+const BITRATES: [u32; 4] = [64, 128, 192, 320];
+
+/// The option picked in a filter dropdown whose first entry is "Any".
+fn filter_choice<T: Copy>(options: &[T], selected: u32) -> Option<T> {
+    let index = selected.checked_sub(1)? as usize;
+    options.get(index).copied()
+}
+
+/// Dropdown model: "Any" followed by `labels`.
+fn any_and(labels: impl IntoIterator<Item = String>) -> gtk::StringList {
+    let list = gtk::StringList::new(&[&i18n("Any")]);
+    for label in labels {
+        list.append(&label);
+    }
+    list
+}
 
 mod imp {
     use super::*;
@@ -43,11 +64,21 @@ mod imp {
         search_gridview: TemplateChild<gtk::GridView>,
         #[template_child]
         failure_statuspage: TemplateChild<adw::StatusPage>,
+        #[template_child]
+        filter_box: TemplateChild<gtk::Box>,
+        #[template_child]
+        country_dropdown: TemplateChild<gtk::DropDown>,
+        #[template_child]
+        codec_dropdown: TemplateChild<gtk::DropDown>,
+        #[template_child]
+        bitrate_dropdown: TemplateChild<gtk::DropDown>,
 
         popular_model: SwStationModel,
         random_model: SwStationModel,
         search_model: SwStationModel,
 
+        countries: RefCell<Vec<Country>>,
+        search_generation: Cell<u64>,
         loaded: Cell<bool>,
     }
 
@@ -108,8 +139,63 @@ mod imp {
                     station_dialog.present(Some(gv));
                 });
 
+            // Search filters
+            let string_expr = gtk::PropertyExpression::new(
+                gtk::StringObject::static_type(),
+                None::<&gtk::Expression>,
+                "string",
+            );
+            let bitrates = BITRATES.map(|b| i18n_f("≥ {} kbit/s", &[&b.to_string()]));
+            let models = [
+                (&*self.country_dropdown, any_and([])),
+                (&*self.codec_dropdown, any_and(CODECS.map(String::from))),
+                (&*self.bitrate_dropdown, any_and(bitrates)),
+            ];
+            for (dropdown, model) in models {
+                dropdown.set_model(Some(&model));
+                dropdown.set_expression(Some(&string_expr));
+                dropdown.set_factory(Some(&label_factory(true)));
+                dropdown.set_list_factory(Some(&label_factory(false)));
+                dropdown.connect_selected_notify(clone!(
+                    #[weak(rename_to = imp)]
+                    self,
+                    move |_| {
+                        glib::spawn_future_local(clone!(
+                            #[weak]
+                            imp,
+                            async move { imp.search_changed().await }
+                        ));
+                    }
+                ));
+            }
+
             self.stack.set_visible_child_name("spinner");
         }
+    }
+
+    /// Dropdown item factory showing the item's string; the closed button
+    /// ellipsizes so long country names don't widen the filter row.
+    fn label_factory(ellipsize: bool) -> gtk::SignalListItemFactory {
+        let factory = gtk::SignalListItemFactory::new();
+        factory.connect_setup(move |_, item| {
+            let label = gtk::Label::builder().xalign(0.0).build();
+            if ellipsize {
+                label.set_ellipsize(gtk::pango::EllipsizeMode::End);
+            }
+            item.downcast_ref::<gtk::ListItem>()
+                .unwrap()
+                .set_child(Some(&label));
+        });
+        factory.connect_bind(|_, item| {
+            let item = item.downcast_ref::<gtk::ListItem>().unwrap();
+            let text = item
+                .item()
+                .and_downcast::<gtk::StringObject>()
+                .map(|s| s.string());
+            let label = item.child().and_downcast::<gtk::Label>().unwrap();
+            label.set_text(text.as_deref().unwrap_or_default());
+        });
+        factory
     }
 
     impl WidgetImpl for SwSearchPage {
@@ -138,8 +224,12 @@ mod imp {
 
             match self.load_discover_stations().await {
                 Ok(()) => {
+                    if self.countries.borrow().is_empty() {
+                        self.load_countries().await;
+                    }
                     self.loaded.set(true);
                     self.search_entry.set_sensitive(true);
+                    self.filter_box.set_visible(true);
                     self.stack.set_visible_child_name("discover");
                 }
                 Err(e) => {
@@ -192,6 +282,18 @@ mod imp {
             Ok(())
         }
 
+        /// Fill the country filter; on failure it keeps only "Any".
+        async fn load_countries(&self) {
+            match client::countries().await {
+                Ok(countries) => {
+                    let model = any_and(countries.iter().map(|c| c.name.clone()));
+                    *self.countries.borrow_mut() = countries;
+                    self.country_dropdown.set_model(Some(&model));
+                }
+                Err(e) => warn!("Unable to load country list: {}", e),
+            }
+        }
+
         #[template_callback]
         async fn search_changed(&self) {
             if !self.loaded.get() {
@@ -201,17 +303,35 @@ mod imp {
             let text = self.search_entry.text().trim().to_string();
             let text = if text.is_empty() { None } else { Some(text) };
 
-            // Don't search if search entry is empty
-            if text.is_none() {
+            let countrycode = self
+                .country_dropdown
+                .selected()
+                .checked_sub(1)
+                .and_then(|i| self.countries.borrow().get(i as usize).cloned())
+                .map(|c| c.iso_3166_1);
+            let codec = filter_choice(&CODECS, self.codec_dropdown.selected()).map(String::from);
+            let bitrate_min = filter_choice(&BITRATES, self.bitrate_dropdown.selected());
+
+            // Nothing to search for: back to the discover view
+            if text.is_none() && countrycode.is_none() && codec.is_none() && bitrate_min.is_none() {
+                self.search_generation.set(self.search_generation.get() + 1);
                 self.stack.set_visible_child_name("discover");
                 return;
             }
 
-            let request = StationRequest::search_for_name(text, 1000);
+            let generation = self.search_generation.get() + 1;
+            self.search_generation.set(generation);
+
+            let filters = StationRequest::filtered(countrycode, codec, bitrate_min);
             self.stack.set_visible_child_name("spinner");
 
-            debug!("Search for: {:?}", request);
-            let res = client::station_request(request).await;
+            debug!("Search for: {:?} {:?}", text, filters);
+            let res = client::search_stations(text, filters).await;
+
+            // A newer search started meanwhile: its result wins
+            if generation != self.search_generation.get() {
+                return;
+            }
             res.handle_error("Unable to search for stations");
 
             if let Ok(stations) = res {
@@ -237,4 +357,22 @@ mod imp {
 glib::wrapper! {
     pub struct SwSearchPage(ObjectSubclass<imp::SwSearchPage>)
         @extends gtk::Widget, adw::NavigationPage;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn filter_choice_any_and_invalid_are_none() {
+        assert_eq!(filter_choice(&BITRATES, 0), None);
+        assert_eq!(filter_choice(&BITRATES, gtk::INVALID_LIST_POSITION), None);
+        assert_eq!(filter_choice(&BITRATES, 99), None);
+    }
+
+    #[test]
+    fn filter_choice_maps_past_any() {
+        assert_eq!(filter_choice(&BITRATES, 1), Some(64));
+        assert_eq!(filter_choice(&CODECS, 3), Some("AAC+"));
+    }
 }
