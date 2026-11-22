@@ -80,7 +80,8 @@ Releases are published by CI when a `v<version>` tag is pushed:
 1. Set the new version in `meson.build` (e.g. `5.0.0-win.2`: upstream
    version, then `-win.N` for the port's own releases).
 2. Write the release notes in `docs/releases/<version>.md` (they become the
-   text of the GitHub Release) and add a section to `CHANGELOG.md`.
+   text of the GitHub Release) and move the `Unreleased` entries in
+   `CHANGELOG.md` under the new version and date.
 3. Commit and push to `main`.
 4. Tag and push the tag:
 

@@ -64,6 +64,21 @@ Shortwave builds natively on Windows with MSYS2 UCRT64 (GTK4, libadwaita, GStrea
 
 Full instructions: [docs/BUILDING-WINDOWS.md](docs/BUILDING-WINDOWS.md). Design notes: [docs/PORTING.md](docs/PORTING.md).
 
+## Releasing
+Releases are published by CI when a version tag is pushed. Versions are the upstream version plus `-win.N` for the port's own releases (e.g. `5.0.0-win.2`).
+
+1. Set the version in `meson.build`.
+2. Write the release notes in `docs/releases/<version>.md` (they become the GitHub Release text) and move the `Unreleased` entries in [CHANGELOG.md](CHANGELOG.md) under the new version.
+3. Commit and push to `main`.
+4. Tag and push the tag:
+
+   ```powershell
+   git tag -a v5.0.0-win.2 -m "Shortwave for Windows 5.0.0-win.2"
+   git push origin v5.0.0-win.2
+   ```
+
+CI builds and tests on Windows and Linux, then publishes the release with the installer and the portable zip. It publishes nothing if the built files don't match the tag's version or the release notes are missing. Details: [docs/BUILDING-WINDOWS.md](docs/BUILDING-WINDOWS.md#releasing).
+
 ## Code Of Conduct
 We follow the [GNOME Code of Conduct](https://conduct.gnome.org/). All
 communications in project spaces are expected to follow it.
