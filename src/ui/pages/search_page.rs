@@ -154,6 +154,8 @@ mod imp {
             for (dropdown, model) in models {
                 dropdown.set_model(Some(&model));
                 dropdown.set_expression(Some(&string_expr));
+                // Formal names ("The United States Of America"): match anywhere
+                dropdown.set_search_match_mode(gtk::StringFilterMatchMode::Substring);
                 dropdown.set_factory(Some(&label_factory(true)));
                 dropdown.set_list_factory(Some(&label_factory(false)));
                 dropdown.connect_selected_notify(clone!(

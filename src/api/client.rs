@@ -100,8 +100,18 @@ pub async fn countries() -> Result<Vec<Country>, Error> {
     let mut countries = send_request_compat::<Vec<Country>>(request).await?;
 
     countries.retain(|c| !c.iso_3166_1.is_empty());
-    countries.sort_by_key(|c| c.name.to_lowercase());
+    countries.sort_by_key(|c| country_sort_key(&c.name));
     Ok(countries)
+}
+
+/// radio-browser uses formal names ("The Netherlands"); sort them by the
+/// name proper so they don't all bunch up under "T".
+fn country_sort_key(name: &str) -> String {
+    let name = name.to_lowercase();
+    match name.strip_prefix("the ") {
+        Some(rest) => rest.to_string(),
+        None => name,
+    }
 }
 
 async fn request_metadata(request: StationRequest) -> Result<Vec<StationMetadata>, Error> {
@@ -260,5 +270,17 @@ mod tests {
         let out = merge_by_votes(vec![md("a", 5), md("b", 50)], vec![md("b", 50), md("c", 20)]);
         let ids: Vec<_> = out.iter().map(|m| m.stationuuid.as_str()).collect();
         assert_eq!(ids, ["b", "c", "a"]);
+    }
+}
+
+#[cfg(test)]
+mod country_tests {
+    use super::*;
+
+    #[test]
+    fn country_sort_ignores_leading_the() {
+        assert_eq!(country_sort_key("The United States Of America"), "united states of america");
+        assert_eq!(country_sort_key("Brazil"), "brazil");
+        assert_eq!(country_sort_key("Thailand"), "thailand");
     }
 }
