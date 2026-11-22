@@ -73,6 +73,29 @@ cargo clippy --locked && cargo test --locked
 If Meson can't find `git`, either install it in MSYS2
 (`pacman -S git`) or start the shell with `MSYS2_PATH_TYPE=inherit`.
 
+## Releasing
+
+Releases are published by CI when a `v<version>` tag is pushed:
+
+1. Set the new version in `meson.build` (e.g. `5.0.0-win.2`: upstream
+   version, then `-win.N` for the port's own releases).
+2. Write the release notes in `docs/releases/<version>.md` (they become the
+   text of the GitHub Release) and add a section to `CHANGELOG.md`.
+3. Commit and push to `main`.
+4. Tag and push the tag:
+
+   ```powershell
+   git tag -a v5.0.0-win.2 -m "Shortwave for Windows 5.0.0-win.2"
+   git push origin v5.0.0-win.2
+   ```
+
+The CI run for the tag builds and tests on Windows and Linux; the `release`
+job then publishes "Shortwave for Windows <version>" with the installer and
+the portable zip attached. It fails without publishing anything if the built
+files don't carry the tag's version or the release notes file is missing; fix
+it, then delete and re-push the tag. To check the script locally:
+`bash build-aux/test-publish-release.sh`.
+
 ## How the Windows build differs
 
 - `meson.build` skips the D-Bus, OpenSSL, lcms2 and libseccomp checks on
