@@ -54,6 +54,12 @@ First release of the Windows port, based on Shortwave 5.0.0.
   are retried later instead of being remembered as "no logo".
 
 ### Known issues
+- The features added last (search filters, the heart button, country flags,
+  the language picker and the larger headings) pass the automated tests but
+  haven't yet been checked by hand in the running app.
+- Dark mode following Windows: only light mode has been tested.
+- Hardware media keys weren't pressed in testing; the Windows media overlay,
+  which uses the same controls, works.
 - Clicking the Save Track / Don't Record buttons on a toast is untested.
 - Chromecast: devices are discovered, but casting itself is untested.
 - The per-machine install (with its firewall rule) is untested; per-user
@@ -61,7 +67,8 @@ First release of the Windows port, based on Shortwave 5.0.0.
 - System proxy settings aren't used; only `http_proxy`-style environment
   variables are.
 - A few new menu entries ("Show Window", "Hide Window", "Quit", "Location")
-  and the new search and heart labels appear in English in most languages.
+  appear in English in most languages; the new search, filter and heart
+  labels appear in English in all languages.
 - From upstream: saved recordings miss their last ~4 seconds; the last played
   station isn't restored if it isn't in your library.
 - The bitrate filter leaves out stations that don't report a bitrate.
