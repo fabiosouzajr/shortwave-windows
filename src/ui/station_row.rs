@@ -21,10 +21,11 @@ use glib::clone;
 use glib::subclass;
 use glib::Properties;
 use gtk::prelude::*;
-use gtk::{glib, CompositeTemplate};
+use gtk::{gio, glib, CompositeTemplate};
 use inflector::Inflector;
 
 use crate::api::StationMetadata;
+use crate::config;
 use crate::i18n::i18n;
 use crate::api::SwStation;
 use crate::ui::SwStationCover;
@@ -39,6 +40,10 @@ mod imp {
     pub struct SwStationRow {
         #[template_child]
         station_label: TemplateChild<gtk::Label>,
+        #[template_child]
+        subtitle_box: TemplateChild<gtk::Box>,
+        #[template_child]
+        flag_image: TemplateChild<gtk::Image>,
         #[template_child]
         subtitle_label: TemplateChild<gtk::Label>,
         #[template_child]
@@ -177,6 +182,18 @@ mod imp {
 
             self.subtitle_label.set_text(&subtitle);
             self.subtitle_label.set_visible(!subtitle.is_empty());
+
+            // Rows are recycled by the search grid: always reset the flag
+            let flag = flag_resource_path(&metadata.countrycode).filter(|path| {
+                gio::resources_get_info(path, gio::ResourceLookupFlags::NONE).is_ok()
+            });
+            match &flag {
+                Some(path) => self.flag_image.set_resource(Some(path)),
+                None => self.flag_image.clear(),
+            }
+            self.flag_image.set_visible(flag.is_some());
+            self.subtitle_box
+                .set_visible(flag.is_some() || !subtitle.is_empty());
         }
     }
 }
@@ -190,6 +207,14 @@ impl SwStationRow {
     pub fn new(station: &SwStation) -> Self {
         glib::Object::builder().property("station", station).build()
     }
+}
+
+/// GResource path of the bundled flag for an ISO 3166-1 alpha-2 country
+/// code, or `None` when the code isn't two ASCII letters.
+fn flag_resource_path(countrycode: &str) -> Option<String> {
+    let cc = countrycode.trim().to_ascii_lowercase();
+    (cc.len() == 2 && cc.bytes().all(|b| b.is_ascii_lowercase()))
+        .then(|| format!("{}/flags/{cc}.svg", config::PATH_ID))
 }
 
 /// Pango markup for a translated bitrate template such as `{} kbit/s`: the
@@ -221,6 +246,19 @@ mod tests {
             bitrate_markup("{} kbit/s", 128),
             "<span font_family=\"monospace\">128</span><span size=\"smaller\"> kbit/s</span>"
         );
+    }
+
+    #[test]
+    fn flag_path_normalises_code() {
+        assert_eq!(flag_resource_path(" BR ").unwrap(), flag_resource_path("br").unwrap());
+        assert!(flag_resource_path("br").unwrap().ends_with("/flags/br.svg"));
+    }
+
+    #[test]
+    fn flag_path_rejects_bad_codes() {
+        assert_eq!(flag_resource_path(""), None);
+        assert_eq!(flag_resource_path("GBR"), None);
+        assert_eq!(flag_resource_path("1A"), None);
     }
 
     #[test]
