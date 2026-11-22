@@ -1,7 +1,7 @@
 # Windows port: status
 
 State of the unofficial Windows port of Shortwave 5.0 on branch `main`
-(private repository `fabiosouzajr/shortwave-windows`), as of 2026-11-22,
+(public repository `fabiosouzajr/shortwave-windows`), as of 2026-11-22,
 release `5.0.0-win.1`. The verification checklist below was run on
 2026-11-20; features added after it are listed under "Not working / not
 tested" until they have been checked in the running app. Design:
@@ -26,7 +26,7 @@ GitHub Actions. "Evidence" names what was observed, not what is expected.
 | Chromecast discovered and casting works | ⚠️ discovery only | No Cast device available. A fake `_googlecast._tcp` advertiser was discovered and listed; connection errors are reported cleanly. TLS handshake, receiver launch and media `LOAD` are **untested** |
 | Bundle runs on a clean machine | ✅ (PATH-stripped, agreed) | Relocated copy, only System32 on `PATH`, fresh GStreamer registry: 0 modules from `C:\msys64`, both stream types audible, UI/fonts/icons/translations fine. Windows Sandbox/VM test not done (agreed) |
 | Installer installs and uninstalls cleanly | ✅ per-user / ⚠️ per-machine | Silent per-user install: 1691 files, shortcut with AUMID, app runs from it; uninstall removes program, shortcut and uninstall entry, keeps user data. The per-machine path (UAC, firewall rule) was not run |
-| Repository private, work pushed | ✅ | `gh repo view --json visibility` → `PRIVATE`; `windows-port` pushed to `origin` (development has since moved to `main`) |
+| Repository published, work pushed | ✅ | Private during development (`windows-port` pushed to `origin`); made public on 2026-11-22 for the first release after a history scan for secrets found none: `gh repo view --json visibility` → `PUBLIC`, release page reachable without login (HTTP 200). Development is on `main` |
 
 ## What works on Windows
 
