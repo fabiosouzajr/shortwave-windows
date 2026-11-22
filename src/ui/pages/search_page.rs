@@ -37,9 +37,9 @@ fn filter_choice<T: Copy>(options: &[T], selected: u32) -> Option<T> {
     options.get(index).copied()
 }
 
-/// Dropdown model: "Any" followed by `labels`.
-fn any_and(labels: impl IntoIterator<Item = String>) -> gtk::StringList {
-    let list = gtk::StringList::new(&[&i18n("Any")]);
+/// Dropdown model: the "no filter" entry (e.g. "Any Country") followed by `labels`.
+fn any_and(any: &str, labels: impl IntoIterator<Item = String>) -> gtk::StringList {
+    let list = gtk::StringList::new(&[any]);
     for label in labels {
         list.append(&label);
     }
@@ -147,9 +147,12 @@ mod imp {
             );
             let bitrates = BITRATES.map(|b| i18n_f("≥ {} kbit/s", &[&b.to_string()]));
             let models = [
-                (&*self.country_dropdown, any_and([])),
-                (&*self.codec_dropdown, any_and(CODECS.map(String::from))),
-                (&*self.bitrate_dropdown, any_and(bitrates)),
+                (&*self.country_dropdown, any_and(&i18n("Any Country"), [])),
+                (
+                    &*self.codec_dropdown,
+                    any_and(&i18n("Any Codec"), CODECS.map(String::from)),
+                ),
+                (&*self.bitrate_dropdown, any_and(&i18n("Any Bitrate"), bitrates)),
             ];
             for (dropdown, model) in models {
                 dropdown.set_model(Some(&model));
@@ -284,11 +287,14 @@ mod imp {
             Ok(())
         }
 
-        /// Fill the country filter; on failure it keeps only "Any".
+        /// Fill the country filter; on failure it keeps only "Any Country".
         async fn load_countries(&self) {
             match client::countries().await {
                 Ok(countries) => {
-                    let model = any_and(countries.iter().map(|c| c.name.clone()));
+                    let model = any_and(
+                        &i18n("Any Country"),
+                        countries.iter().map(|c| c.name.clone()),
+                    );
                     *self.countries.borrow_mut() = countries;
                     self.country_dropdown.set_model(Some(&model));
                 }
