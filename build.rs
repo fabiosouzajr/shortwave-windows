@@ -41,13 +41,14 @@ mod windows {
             .unwrap_or_else(|| "0.0.0".to_string())
     }
 
-    /// "5.0.0" -> 0x0005_0000_0000_0000 for the binary VERSIONINFO fields.
+    /// "5.0.0-win.1" -> 0x0005_0000_0000_0001 ("5.0.0" -> ..._0000) for the
+    /// binary VERSIONINFO fields: the first four numbers, in order.
     fn numeric_version(version: &str) -> u64 {
         let mut parts = version
             .split(|c: char| !c.is_ascii_digit())
             .filter_map(|p| p.parse::<u64>().ok());
         let mut value = 0;
-        for shift in [48, 32, 16] {
+        for shift in [48, 32, 16, 0] {
             value |= (parts.next().unwrap_or(0) & 0xffff) << shift;
         }
         value

@@ -8,13 +8,21 @@ Shortwave is an internet radio player that provides access to a station database
 This is an **unofficial Windows 10/11 (x64) port** of [GNOME Shortwave](https://gitlab.gnome.org/World/Shortwave). It is not affiliated with the Shortwave authors or the GNOME project; see [NOTICE.md](NOTICE.md). Please report problems with the Windows build here, not upstream.
 
 ## Installation
-Build the installer or the portable zip yourself (see [Building](#building)):
+Download the latest version from the [Releases page](https://github.com/fabiosouzajr/shortwave-windows/releases) (Windows 10/11, 64-bit):
 
-- `dist\Shortwave-<version>-windows-x64-setup.exe`: Inno Setup installer (per-user or per-machine).
-- `dist\Shortwave-<version>-windows-x64.zip`: portable, self-contained bundle. Unzip and run `shortwave.exe`.
+- `Shortwave-<version>-windows-x64-setup.exe`: installer (per-user or per-machine), recommended.
+- `Shortwave-<version>-windows-x64.zip`: portable, self-contained bundle. Unzip and run `Shortwave\bin\shortwave.exe`.
+
+The files aren't code-signed, so Windows SmartScreen may ask you to confirm (**More info → Run anyway**). You can also build both yourself (see [Building](#building)). What changed in each version: [CHANGELOG.md](CHANGELOG.md).
 
 ## Features on Windows
-Search, playback (HTTP/HTTPS/HLS), library, recording (saved to `Music\Shortwave`), media keys and the Windows media overlay, a tray icon for background playback, toast notifications, and dark/light mode following Windows. Chromecast discovery works, but casting itself is untested. See [docs/WINDOWS-PORT-STATUS.md](docs/WINDOWS-PORT-STATUS.md) for details.
+- Search by station name or genre, filtered by country, codec and minimum bitrate.
+- Station cards with country flags, station logos (also found on the station's homepage) and a codec/bitrate meter.
+- Playback (HTTP/HTTPS/HLS), a heart in the player to save the playing station, library, recording (saved to `Music\Shortwave`).
+- Media keys and the Windows media overlay, a tray icon for background playback, toast notifications, dark/light mode following Windows.
+- App language selectable in Preferences.
+
+Chromecast discovery works, but casting itself is untested. See [docs/WINDOWS-PORT-STATUS.md](docs/WINDOWS-PORT-STATUS.md) for details.
 
 ## FAQ
 - **Why is it called 'Shortwave'?**

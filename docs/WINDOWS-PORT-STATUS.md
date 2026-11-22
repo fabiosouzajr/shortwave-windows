@@ -1,9 +1,13 @@
 # Windows port: status
 
-State of the unofficial Windows port of Shortwave 5.0 on branch
-`windows-port` (private repository `fabiosouzajr/shortwave-windows`), as of
-2026-11-20. Design: [PORTING.md](PORTING.md). Analysis: [re/](re/).
-Build instructions: [BUILDING-WINDOWS.md](BUILDING-WINDOWS.md).
+State of the unofficial Windows port of Shortwave 5.0 on branch `main`
+(private repository `fabiosouzajr/shortwave-windows`), as of 2026-11-22,
+release `5.0.0-win.1`. The verification checklist below was run on
+2026-11-20; features added after it are listed under "Not working / not
+tested" until they have been checked in the running app. Design:
+[PORTING.md](PORTING.md). Analysis: [re/](re/). Build instructions:
+[BUILDING-WINDOWS.md](BUILDING-WINDOWS.md). Changes per release:
+[CHANGELOG.md](../CHANGELOG.md).
 
 ## Verification checklist
 
@@ -22,7 +26,7 @@ GitHub Actions. "Evidence" names what was observed, not what is expected.
 | Chromecast discovered and casting works | ⚠️ discovery only | No Cast device available. A fake `_googlecast._tcp` advertiser was discovered and listed; connection errors are reported cleanly. TLS handshake, receiver launch and media `LOAD` are **untested** |
 | Bundle runs on a clean machine | ✅ (PATH-stripped, agreed) | Relocated copy, only System32 on `PATH`, fresh GStreamer registry: 0 modules from `C:\msys64`, both stream types audible, UI/fonts/icons/translations fine. Windows Sandbox/VM test not done (agreed) |
 | Installer installs and uninstalls cleanly | ✅ per-user / ⚠️ per-machine | Silent per-user install: 1691 files, shortcut with AUMID, app runs from it; uninstall removes program, shortcut and uninstall entry, keeps user data. The per-machine path (UAC, firewall rule) was not run |
-| Repository private, work pushed | ✅ | `gh repo view --json visibility` → `PRIVATE`; `windows-port` pushed to `origin` |
+| Repository private, work pushed | ✅ | `gh repo view --json visibility` → `PRIVATE`; `windows-port` pushed to `origin` (development has since moved to `main`) |
 
 ## What works on Windows
 
@@ -38,6 +42,15 @@ GitHub Actions. "Evidence" names what was observed, not what is expected.
   Windows, HiDPI manifest, app icon and version info, no console window.
 - Self-contained bundle (124 MB, 50 MB zip), Inno Setup installer (33 MB), CI.
 
+Added since the checklist (2026-11-21/22; unit-tested, see below for
+in-app status):
+
+- Station cards: bigger logos, logos found on the station's homepage, bold
+  name, codec and bitrate meter, country flags (bundled, flag-icons v7.6.0).
+- Search by name or genre with country, codec and minimum-bitrate filters.
+- Heart button in the player view that saves the playing station.
+- Larger Browse headings; app language selectable in Preferences.
+
 ## Not working / not tested
 
 | Item | Status |
@@ -48,6 +61,8 @@ GitHub Actions. "Evidence" names what was observed, not what is expected.
 | Per-machine install + firewall rule | Untested (needs UAC) |
 | Hardware media keys | Not pressed physically (SMTC path verified) |
 | Windows Sandbox / VM clean test | Not done; PATH-stripped test used instead |
+| Features added 2026-11-21/22 (see "What works") | Unit tests and builds pass; not yet recorded as checked in the running app: flag rendering, heart states, search filters and the country search, dropdown labels, language switch |
+| Translations of the 2026-11-22 strings | Search filter, heart and "Station added" strings are untranslated in all languages |
 | Dark theme switch | Light verified; libadwaita reports system colour-scheme support |
 | System proxy | GIO proxy modules aren't bundled; `http_proxy`-style environment variables only |
 | Translations of the new strings | "Show Window", "Hide Window", "Quit", "Location" appear in English where upstream has no translation |
@@ -96,7 +111,7 @@ Port-specific:
 ```powershell
 git fetch upstream          # Mauna Linux packaging (re-imports releases)
 git fetch gnome --tags      # GNOME upstream (the actual development)
-git checkout windows-port
+git checkout main
 git merge upstream/main     # or: git merge <gnome tag>
 ```
 

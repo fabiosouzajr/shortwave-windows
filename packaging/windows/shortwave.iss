@@ -7,11 +7,11 @@
 ; (at your option) any later version.
 ;
 ; Build with build-aux\windows\installer.ps1, or by hand:
-;   ISCC.exe /DAppVersion=5.0.0 packaging\windows\shortwave.iss
+;   ISCC.exe /DAppVersion=5.0.0-win.1 packaging\windows\shortwave.iss
 ; Expects the bundle in dist\Shortwave (build-aux\windows\bundle.ps1).
 
 #ifndef AppVersion
-  #define AppVersion "5.0.0"
+  #define AppVersion "5.0.0-win.1"
 #endif
 #define AppName "Shortwave"
 #define AppId "de.haeckerfelix.Shortwave"
