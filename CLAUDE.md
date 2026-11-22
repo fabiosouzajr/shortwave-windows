@@ -63,3 +63,37 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
+---
+
+## Project: releasing the Windows port
+
+Releases are published by CI (`.github/workflows/windows.yml`, job `release`)
+when a `v<version>` tag is pushed. Don't build release files locally or run
+`gh release create` by hand; that was only needed for `5.0.0-win.1`.
+
+- **Version format:** upstream version + `-win.N` (e.g. `5.0.0-win.2`); tag is
+  `v` + version. The version lives only in `meson.build` (`Cargo.toml` stays
+  `0.0.0`); it flows to the About dialog, the exe's version info (`build.rs`
+  makes `5.0.0.2`) and the installer/zip names.
+- **Steps:**
+  1. Set the version in `meson.build`.
+  2. Write `docs/releases/<version>.md` (the GitHub Release text, for people
+     downloading the app) and move the `## [Unreleased]` entries in
+     `CHANGELOG.md` under `## [<version>] - <date>`; update the link footer.
+  3. Commit and push to `main`.
+  4. `git tag -a v<version> -m "Shortwave for Windows <version>"` and
+     `git push origin v<version>`.
+  5. Watch the tag's CI run (`gh run list`, `gh run watch`); the `release` job
+     runs only after the Windows and Linux jobs pass.
+- **Guard rails:** `build-aux/publish-release.sh` refuses to publish if the
+  installer/zip don't carry the tag's version or the notes file is missing.
+  Test it with `bash build-aux/test-publish-release.sh`. If a tag run fails,
+  fix it and ask the user before deleting and re-pushing the tag.
+- **Docs to keep honest:** known issues in the release notes must match the
+  "Not working / not tested" table in `docs/WINDOWS-PORT-STATUS.md`; features
+  not yet checked in the running app are known issues, not highlights.
+- **Ask first:** pushing a tag publishes a public release (the repository is
+  public). Never move or force-push an already pushed tag.
+- Full routine for people: README "Releasing" and
+  `docs/BUILDING-WINDOWS.md#releasing`.
