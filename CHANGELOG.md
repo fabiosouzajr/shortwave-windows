@@ -10,6 +10,10 @@ upstream version it is based on; `-win.N` counts the port's own releases.
 - Issue forms for bug reports and feature requests, a security policy and
   contributing notes. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+### Fixed
+- The minimum-bitrate filter in Search now works; before, it showed stations
+  of every bitrate ([#1](https://github.com/fabiosouzajr/shortwave-windows/issues/1)).
+
 ## [5.0.0-win.2] - 2026-11-24
 
 Based on Shortwave 5.0.0.
