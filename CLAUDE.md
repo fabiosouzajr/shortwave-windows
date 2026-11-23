@@ -66,6 +66,34 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 ---
 
+## Project: handling bugs
+
+1. **Investigate, then stop.** Find where the behaviour happens and reproduce
+   it with a unit test that fails. Decide whether the cause is our code,
+   upstream (`git log -S<name>`: the initial commits are the upstream import)
+   or radio-browser data. For API problems, compare raw queries against the
+   live server (`Invoke-RestMethod https://de1.api.radio-browser.info/json/...`).
+   radio-browser silently ignores unknown parameters, and its names are
+   camelCase (`bitrateMin`, `nameExact`). Report the root cause, evidence and
+   proposed fix, and wait for approval.
+2. **Issue:** draft it (summary, repro, expected/actual, root cause, fix, out
+   of scope) and show it to the user before `gh issue create --body-file`.
+3. **Fix** on a `fix/<topic>` branch: make the test pass, then run
+   `cargo clippy --locked && cargo test --locked`. Clippy should show only the
+   17 known upstream warnings. Add a CHANGELOG `### Fixed` entry under
+   `[Unreleased]` that links the issue. Update `docs/WINDOWS-PORT-STATUS.md`
+   only if the fix changes what it says, and don't mark a fix as verified in
+   the app unless it was checked there.
+4. **Commit** with "Fixes #N" in the message, push the branch and open a PR
+   (`gh pr create --body-file`) that lists what was and wasn't verified.
+
+Running tests from PowerShell (`source /etc/profile` changes the directory,
+so `cd` after it):
+`C:\msys64\usr\bin\bash.exe -lc 'export MSYSTEM=UCRT64; source /etc/profile; cd /d/git/shortwave-windows && export CARGO_HOME=$PWD/_build/cargo-home; cargo test --locked'`
+
+For multi-line commit messages, write the message to a file and use
+`git commit -F <file>`. PowerShell doesn't pipe a here-string into `-F -`.
+
 ## Project: releasing the Windows port
 
 Releases are published by CI (`.github/workflows/windows.yml`, job `release`)
