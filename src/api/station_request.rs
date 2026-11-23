@@ -28,7 +28,10 @@ pub struct StationRequest {
     pub tag: Option<String>,
     pub tag_exact: Option<bool>,
     pub codec: Option<String>,
+    // radio-browser's names; it silently ignores `bitrate_min`/`bitrate_max`
+    #[serde(rename = "bitrateMin")]
     pub bitrate_min: Option<u32>,
+    #[serde(rename = "bitrateMax")]
     pub bitrate_max: Option<u32>,
     pub has_geo_info: Option<bool>,
     pub has_extended_info: Option<bool>,
@@ -112,12 +115,19 @@ mod tests {
         for part in [
             "countrycode=BR",
             "codec=FLAC",
-            "bitrate_min=128",
+            "bitrateMin=128",
             "limit=1000",
             "order=votes",
             "reverse=true",
         ] {
             assert!(q.contains(part), "{q} missing {part}");
         }
+    }
+
+    #[test]
+    fn bitrate_min_uses_radio_browser_parameter_name() {
+        // radio-browser ignores unknown parameters; it only knows `bitrateMin`.
+        let q = StationRequest::filtered(None, None, Some(320)).url_encode();
+        assert!(q.contains("bitrateMin=320"), "{q} missing bitrateMin=320");
     }
 }
