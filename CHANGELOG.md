@@ -17,6 +17,11 @@ upstream version it is based on; `-win.N` counts the port's own releases.
   don't carry the tag's version or the release notes are missing. See
   [Releasing](docs/BUILDING-WINDOWS.md#releasing).
 
+### Fixed
+- Stations failed to play with "Internal data stream error" when the sound
+  device's format (for example 96 kHz) differed from the stream's sample rate.
+  The audio is now resampled to the device's rate.
+
 ## [5.0.0-win.1] - 2026-11-22
 
 First release of the Windows port, based on Shortwave 5.0.0.
