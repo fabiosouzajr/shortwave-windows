@@ -11,6 +11,9 @@ libadwaita, GStreamer).
 - Git for Windows (`winget install Git.Git`)
 - PowerShell 7 or Windows PowerShell 5.1
 
+`build-aux/windows/setup.ps1` (step 1) checks all of this and offers to install
+MSYS2 and Git for you, so you can start there.
+
 Visual Studio and rustup are **not** needed to build. (They are only useful for
 editor tooling such as rust-analyzer.)
 

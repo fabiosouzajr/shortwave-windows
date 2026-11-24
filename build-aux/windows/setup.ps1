@@ -120,6 +120,14 @@ function Confirm-Continue {
     }
 }
 
+function Format-ExitCode([int]$Code) { '0x{0:X8}' -f $Code }
+
+# The " -Msys2Root '<path>'" part of a printed command, or '' for the default root.
+function Format-RootFlag([string]$Root) {
+    if ($Root.TrimEnd('\') -eq $DefaultMsys2Root) { return '' }
+    " -Msys2Root '" + ($Root -replace "'", "''") + "'"
+}
+
 function Get-RepoRoot { (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path }
 
 function Get-InnoSetupPath {
@@ -191,8 +199,9 @@ function Test-Internet {
     New-CheckResult 'Internet' 'Pass' 'repo.msys2.org reachable'
 }
 
-function Test-Winget {
+function Test-Winget([bool]$Needed) {
     if (Get-Command winget -ErrorAction SilentlyContinue) { return New-CheckResult 'winget' 'Pass' 'available' }
+    if (-not $Needed) { return New-CheckResult 'winget' 'Pass' 'not found (not needed: nothing to install)' }
     New-CheckResult 'winget' 'Warn' 'not found' 'Only needed to install missing tools. Get it by installing "App Installer" from the Microsoft Store.'
 }
 
@@ -210,7 +219,34 @@ function Test-Msys2 {
     if (Test-Path $Root) {
         return New-CheckResult 'MSYS2' 'Fail' "$Root exists but has no usr\bin\bash.exe" 'Conflict: a broken or foreign directory is in the way. Move or delete it, or use -Msys2Root with another path.'
     }
+    if ($Root.TrimEnd('\') -ne $DefaultMsys2Root) {
+        return New-CheckResult 'MSYS2' 'Fail' "not found at $Root" "winget can only install MSYS2 to $DefaultMsys2Root; install it yourself to this folder (https://www.msys2.org) or drop -Msys2Root."
+    }
     New-CheckResult 'MSYS2' 'Fail' "not found at $Root" 'Will be installed with winget (MSYS2.MSYS2).'
+}
+
+# How old the pacman package databases are: a long-unused MSYS2 needs a big first update.
+function Test-Msys2Age {
+    param([string]$Root)
+    $db = Get-ChildItem (Join-Path $Root 'var\lib\pacman\sync') -Filter '*.db' -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if (-not $db) { return New-CheckResult 'MSYS2 age' 'Pass' 'no package database yet' }
+    $days = [int]((Get-Date) - $db.LastWriteTime).TotalDays
+    if ($days -le 180) { return New-CheckResult 'MSYS2 age' 'Pass' "package databases updated $days day(s) ago" }
+    New-CheckResult 'MSYS2 age' 'Warn' "package databases last updated $days day(s) ago" 'An old MSYS2 needs a large first update (do not use -SkipUpdate). If pacman reports keyring or signature errors, see https://www.msys2.org/news/.'
+}
+
+# Are the build tools and libraries installed in MSYS2 UCRT64? (Quiet; Test-Toolchain prints versions.)
+function Test-Packages {
+    param([string]$Root)
+    $ErrorActionPreference = 'Continue'   # native stderr must not become a terminating error in Windows PowerShell 5.1
+    $env:MSYSTEM = 'UCRT64'
+    $env:CHERE_INVOKING = '1'
+    $env:LANG = 'C'
+    $query = 'command -v rustc cargo meson ninja blueprint-compiler && pkg-config --exists gtk4 libadwaita-1 gstreamer-1.0 sqlite3 shumate-1.0'
+    $null = & (Join-Path $Root 'usr\bin\bash.exe') -lc $query 2>$null
+    if ($LASTEXITCODE -eq 0) { return New-CheckResult 'Packages' 'Pass' 'build tools and libraries are installed' }
+    New-CheckResult 'Packages' 'Fail' 'build tools or libraries are missing' 'The package setup step will install them.'
 }
 
 function Test-Git {
@@ -228,8 +264,14 @@ function Test-InnoSetup {
 function Test-Conflicts {
     param([string]$Root)
     $results = @()
+    # Trailing backslash so C:\msys64-old does not match C:\msys64. gpg helpers linger after
+    # keyring work and are harmless. Elevated processes have no readable Path when we run
+    # as a standard user, so those are not detected.
+    $prefix = $Root.TrimEnd('\') + '\'
+    $harmless = @('gpg-agent', 'dirmngr', 'gpg', 'scdaemon')
     $running = @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
-            $_.Name -eq 'pacman' -or ($_.Path -and $_.Path.StartsWith($Root, [StringComparison]::OrdinalIgnoreCase))
+            $harmless -notcontains $_.Name -and
+            ($_.Name -eq 'pacman' -or ($_.Path -and $_.Path.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)))
         })
     if ($running.Count -gt 0) {
         $names = ($running | Select-Object -ExpandProperty Name -Unique) -join ', '
@@ -256,18 +298,25 @@ function Install-WithWinget {
     param([string]$Id, [string]$Name)
     Write-Host "==> Installing $Name with winget ($Id)" -ForegroundColor Cyan
     & winget install --id $Id -e --accept-package-agreements --accept-source-agreements --silent
-    if ($LASTEXITCODE -ne 0) { throw "winget could not install $Name (exit code $LASTEXITCODE). Install it manually and re-run this script." }
+    if ($LASTEXITCODE -ne 0) {
+        throw ("winget could not install $Name (exit code {0}). If winget's sources are unreachable, try 'winget source reset --force' in an administrator shell; otherwise install $Name yourself and re-run this script." -f (Format-ExitCode $LASTEXITCODE))
+    }
 }
 
+# Pick up PATH entries added by an installer without losing entries only this session has.
 function Update-SessionPath {
-    $machine = [Environment]::GetEnvironmentVariable('Path', 'Machine')
-    $user = [Environment]::GetEnvironmentVariable('Path', 'User')
-    $env:PATH = "$machine;$user"
+    $current = @($env:PATH -split ';' | Where-Object { $_ })
+    foreach ($scope in 'Machine', 'User') {
+        foreach ($entry in ([Environment]::GetEnvironmentVariable('Path', $scope) -split ';')) {
+            if ($entry -and ($current -notcontains $entry)) { $current += $entry }
+        }
+    }
+    $env:PATH = $current -join ';'
 }
 
-function Invoke-PackageSetup {
+function Invoke-PackageSetup([bool]$SkipUpdateNow) {
     $setupArgs = @{ Msys2Root = $Msys2Root }
-    if ($SkipUpdate) { $setupArgs['SkipUpdate'] = $true }
+    if ($SkipUpdateNow) { $setupArgs['SkipUpdate'] = $true }
     & (Join-Path $PSScriptRoot 'setup-msys2.ps1') @setupArgs
 }
 
@@ -287,6 +336,8 @@ function Test-Toolchain {
 
 function Invoke-AllChecks {
     $repo = Get-RepoRoot
+    $msys2Installed = Test-Path (Join-Path $Msys2Root 'usr\bin\bash.exe')
+    $gitInstalled = [bool](Get-Command git -ErrorAction SilentlyContinue)
     @(
         Test-WindowsVersion
         Test-Architecture
@@ -295,9 +346,11 @@ function Invoke-AllChecks {
         Test-DiskSpace -Path $repo -Label 'repository' -MinGB $MinDiskGB
         Test-RepoPath
         Test-Internet
-        Test-Winget
+        Test-Winget -Needed (-not ($msys2Installed -and $gitInstalled))
         Test-AdminRights
         Test-Msys2 -Root $Msys2Root
+        if ($msys2Installed) { Test-Msys2Age -Root $Msys2Root }
+        if ($msys2Installed) { Test-Packages -Root $Msys2Root }
         Test-Git
         Test-InnoSetup
         Test-Conflicts -Root $Msys2Root
@@ -307,7 +360,13 @@ function Invoke-AllChecks {
 Write-Host ''
 Write-Host 'Shortwave for Windows - guided setup' -ForegroundColor Cyan
 Write-Host '  1. check this machine   2. install what is missing   3. install the MSYS2 packages   4. verify'
-Write-Host '  Nothing is changed without asking you first (-CheckOnly changes nothing at all).'
+if ($CheckOnly) {
+    Write-Host '  -CheckOnly: this only reports; nothing on your machine is changed.'
+} elseif ($Yes) {
+    Write-Host '  -Yes: every question is answered with its default, so installs start without asking.'
+} else {
+    Write-Host '  Nothing is changed without asking you first (-CheckOnly changes nothing at all).'
+}
 Write-Host ''
 
 $results = @(Invoke-AllChecks)
@@ -332,7 +391,7 @@ if ((Test-Path $Msys2Root) -and -not (Test-Path $bashPath)) {
 }
 
 # 2. Problems this script cannot fix, then warnings.
-$fixable = @('MSYS2', 'Git')
+$fixable = @('MSYS2', 'Git', 'Packages')
 $blocking = @($results | Where-Object { $_.Status -eq 'Fail' -and $fixable -notcontains $_.Name })
 if ($blocking.Count -gt 0) {
     Write-Host ''
@@ -344,6 +403,7 @@ if ($blocking.Count -gt 0) {
 }
 
 # 3. Install missing tools.
+$msys2JustInstalled = $false
 $needMsys2 = -not (Test-Path $bashPath)
 $needGit = -not (Get-Command git -ErrorAction SilentlyContinue)
 if (($needMsys2 -or $needGit) -and -not (Get-Command winget -ErrorAction SilentlyContinue)) {
@@ -355,8 +415,9 @@ if ($needMsys2) {
     if ($Msys2Root.TrimEnd('\') -ne $DefaultMsys2Root) {
         Stop-Setup "MSYS2 is not installed at $Msys2Root and winget can only install it to $DefaultMsys2Root. Install MSYS2 yourself to that folder (https://www.msys2.org) and re-run, or drop -Msys2Root to use $DefaultMsys2Root. Nothing was changed."
     }
-    if (Confirm-Continue "Install MSYS2 (about 400 MB) to $Msys2Root with winget?" $true) {
+    if (Confirm-Continue "Install MSYS2 (an 81 MB download) to $Msys2Root with winget?" $true) {
         Install-WithWinget -Id 'MSYS2.MSYS2' -Name 'MSYS2'
+        $msys2JustInstalled = $true
         if (-not (Test-Path $bashPath)) { Stop-Setup "MSYS2 was installed but $bashPath was not found. Check the winget output above." }
     } else {
         Stop-Setup 'MSYS2 is required. Stopped. Nothing else was changed.'
@@ -380,18 +441,23 @@ if (-not (Get-InnoSetupPath)) {
 
 # 4. MSYS2 packages (the package list lives in setup-msys2.ps1).
 Write-Host ''
-Write-Host 'Next: update MSYS2 and install about 23 UCRT64 packages (GTK4, libadwaita, GStreamer, Rust, Meson, ...).'
-Write-Host 'This downloads roughly 2 GB and can take 10 to 30 minutes.'
+Write-Host 'Next: update MSYS2 and install the UCRT64 packages listed in setup-msys2.ps1 (GTK4, libadwaita, GStreamer, Rust, Meson, ...).'
+Write-Host 'On a fresh install this downloads about 500 MB and typically takes 10 to 30 minutes.'
 if (-not (Confirm-Continue 'Run the package setup now?' $true)) { Stop-Setup 'Stopped before installing packages. Re-run this script when ready.' }
-Invoke-PackageSetup
+# A fresh MSYS2 has no usable package databases, so it always needs the full update.
+$skipUpdateNow = [bool]$SkipUpdate
+if ($skipUpdateNow -and $msys2JustInstalled) {
+    Write-Warning 'MSYS2 was just installed, so -SkipUpdate is ignored: the package databases must be synchronized first.'
+    $skipUpdateNow = $false
+}
+Invoke-PackageSetup $skipUpdateNow
 
 # 5. Verify.
 Write-Host ''
 Write-Host '==> Verifying the toolchain' -ForegroundColor Cyan
 if (-not (Test-Toolchain)) { Stop-Setup 'Verification failed: a tool is missing or broken. Re-run this script, or run setup-msys2.ps1 and read its output.' }
 
-$rootFlag = ''
-if ($Msys2Root.TrimEnd('\') -ne $DefaultMsys2Root) { $rootFlag = " -Msys2Root '$Msys2Root'" }
+$rootFlag = Format-RootFlag $Msys2Root
 Write-Host ''
 Write-Host 'Setup complete. Next steps:' -ForegroundColor Green
 Write-Host "  .\build-aux\windows\build.ps1 -BuildProfile development$rootFlag        # build"
