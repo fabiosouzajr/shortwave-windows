@@ -251,6 +251,41 @@ function Test-Conflicts {
     $results
 }
 
+# --------------------------------------------------------------- actions
+
+function Install-WithWinget {
+    param([string]$Id, [string]$Name, [string]$Location)
+    Write-Host "==> Installing $Name with winget ($Id)" -ForegroundColor Cyan
+    $wingetArgs = @('install', '--id', $Id, '-e', '--accept-package-agreements', '--accept-source-agreements', '--silent')
+    if ($Location) { $wingetArgs += @('--location', $Location) }
+    & winget @wingetArgs
+    if ($LASTEXITCODE -ne 0) { throw "winget could not install $Name (exit code $LASTEXITCODE). Install it manually and re-run this script." }
+}
+
+function Update-SessionPath {
+    $machine = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+    $user = [Environment]::GetEnvironmentVariable('Path', 'User')
+    $env:PATH = "$machine;$user"
+}
+
+function Invoke-PackageSetup {
+    $setupArgs = @{ Msys2Root = $Msys2Root }
+    if ($SkipUpdate) { $setupArgs['SkipUpdate'] = $true }
+    & (Join-Path $PSScriptRoot 'setup-msys2.ps1') @setupArgs
+}
+
+function Test-Toolchain {
+    $bash = Join-Path $Msys2Root 'usr\bin\bash.exe'
+    $env:MSYSTEM = 'UCRT64'
+    $env:CHERE_INVOKING = '1'
+    $env:LANG = 'C'
+    $script = 'set -e; rustc --version; cargo --version; meson --version; ninja --version; blueprint-compiler --version; ' +
+        'for m in gtk4 libadwaita-1 gstreamer-1.0 sqlite3 shumate-1.0; do v=$(pkg-config --modversion $m); echo $m $v; done'
+    # Out-Host keeps bash's output out of the function's return value (a single boolean).
+    & $bash -lc $script | Out-Host
+    $LASTEXITCODE -eq 0
+}
+
 # ------------------------------------------------------------------- main
 
 function Invoke-AllChecks {
@@ -288,9 +323,80 @@ Write-Host ("Summary: {0} checks, {1} warning(s), {2} to fix." -f $results.Count
 
 if ($CheckOnly) { exit 0 }
 
-if (($warns + $fails) -gt 0) {
-    if (-not (Confirm-Continue 'Some checks need attention. Continue anyway?' $true)) {
-        Write-Host 'Stopped. Nothing was changed.'
-        exit 1
+function Stop-Setup([string]$Message) {
+    Write-Host $Message -ForegroundColor Red
+    exit 1
+}
+
+# 1. Conflicts are never fixed automatically.
+$bashPath = Join-Path $Msys2Root 'usr\bin\bash.exe'
+if ((Test-Path $Msys2Root) -and -not (Test-Path $bashPath)) {
+    Stop-Setup "Conflict: $Msys2Root exists but is not a working MSYS2 install. Move or delete it, or pass -Msys2Root with another path. Nothing was changed."
+}
+
+# 2. Problems this script cannot fix, then warnings.
+$fixable = @('MSYS2', 'Git')
+$blocking = @($results | Where-Object { $_.Status -eq 'Fail' -and $fixable -notcontains $_.Name })
+if ($blocking.Count -gt 0) {
+    Write-Host ''
+    Write-Host 'These problems cannot be fixed by this script:' -ForegroundColor Red
+    $blocking | ForEach-Object { Write-Host ("  - {0}: {1}" -f $_.Name, $_.Message) }
+    if (-not (Confirm-Continue 'Continue anyway? The build is likely to fail.' $false)) { Stop-Setup 'Stopped. Nothing was changed.' }
+} elseif ($warns -gt 0) {
+    if (-not (Confirm-Continue 'Some checks have warnings. Continue?' $true)) { Stop-Setup 'Stopped. Nothing was changed.' }
+}
+
+# 3. Install missing tools.
+$needMsys2 = -not (Test-Path $bashPath)
+$needGit = -not (Get-Command git -ErrorAction SilentlyContinue)
+if (($needMsys2 -or $needGit) -and -not (Get-Command winget -ErrorAction SilentlyContinue)) {
+    Stop-Setup 'winget is needed to install the missing tools. Install "App Installer" from the Microsoft Store (or install MSYS2 and Git yourself) and re-run this script.'
+}
+
+if ($needMsys2) {
+    if (Confirm-Continue "Install MSYS2 (about 400 MB) to $Msys2Root with winget?" $true) {
+        $location = $null
+        if ($Msys2Root.TrimEnd('\') -ne $DefaultMsys2Root) { $location = $Msys2Root }
+        Install-WithWinget -Id 'MSYS2.MSYS2' -Name 'MSYS2' -Location $location
+        if (-not (Test-Path $bashPath)) { Stop-Setup "MSYS2 was installed but $bashPath was not found. Pass -Msys2Root with its real location." }
+    } else {
+        Stop-Setup 'MSYS2 is required. Stopped. Nothing else was changed.'
     }
+}
+
+if ($needGit) {
+    if (Confirm-Continue 'Install Git for Windows with winget?' $true) {
+        Install-WithWinget -Id 'Git.Git' -Name 'Git for Windows'
+        Update-SessionPath
+    } else {
+        Write-Warning 'Skipping Git; Meson will not be able to embed the version tag.'
+    }
+}
+
+if (-not (Get-InnoSetupPath)) {
+    if (Confirm-Continue 'Install Inno Setup 6 (only needed to build the installer)?' $false) {
+        Install-WithWinget -Id 'JRSoftware.InnoSetup' -Name 'Inno Setup 6'
+    }
+}
+
+# 4. MSYS2 packages (the package list lives in setup-msys2.ps1).
+Write-Host ''
+Write-Host 'Next: update MSYS2 and install about 23 UCRT64 packages (GTK4, libadwaita, GStreamer, Rust, Meson, ...).'
+Write-Host 'This downloads roughly 2 GB and can take 10 to 30 minutes.'
+if (-not (Confirm-Continue 'Run the package setup now?' $true)) { Stop-Setup 'Stopped before installing packages. Re-run this script when ready.' }
+Invoke-PackageSetup
+
+# 5. Verify.
+Write-Host ''
+Write-Host '==> Verifying the toolchain' -ForegroundColor Cyan
+if (-not (Test-Toolchain)) { Stop-Setup 'Verification failed: a tool is missing or broken. Re-run this script, or run setup-msys2.ps1 and read its output.' }
+
+$rootFlag = ''
+if ($Msys2Root.TrimEnd('\') -ne $DefaultMsys2Root) { $rootFlag = " -Msys2Root '$Msys2Root'" }
+Write-Host ''
+Write-Host 'Setup complete. Next steps:' -ForegroundColor Green
+Write-Host "  .\build-aux\windows\build.ps1 -BuildProfile development$rootFlag        # build"
+Write-Host "  .\build-aux\windows\build.ps1 -BuildProfile development$rootFlag -Run   # build and start"
+if (Confirm-Continue 'Run the development build now?' $false) {
+    & (Join-Path $PSScriptRoot 'build.ps1') -BuildProfile development -Msys2Root $Msys2Root
 }
