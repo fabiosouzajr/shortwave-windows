@@ -6,6 +6,10 @@ upstream version it is based on; `-win.N` counts the port's own releases.
 
 ## [Unreleased]
 
+## [5.0.0-win.2] - 2026-11-24
+
+Based on Shortwave 5.0.0.
+
 ### Added
 - `build-aux/windows/setup.ps1`: a guided setup for new contributors. It checks
   Windows, memory, disk space and conflicts, asks before installing MSYS2, Git
@@ -91,5 +95,6 @@ First release of the Windows port, based on Shortwave 5.0.0.
   station isn't restored if it isn't in your library.
 - The bitrate filter leaves out stations that don't report a bitrate.
 
-[Unreleased]: https://github.com/fabiosouzajr/shortwave-windows/compare/v5.0.0-win.1...main
+[Unreleased]: https://github.com/fabiosouzajr/shortwave-windows/compare/v5.0.0-win.2...main
+[5.0.0-win.2]: https://github.com/fabiosouzajr/shortwave-windows/compare/v5.0.0-win.1...v5.0.0-win.2
 [5.0.0-win.1]: https://github.com/fabiosouzajr/shortwave-windows/releases/tag/v5.0.0-win.1
