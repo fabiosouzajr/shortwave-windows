@@ -44,6 +44,8 @@ const AUDIOSINK: &str = "audiosink";
 //                                           -----      -------      ---------------------------  //
 //                                                                                                //
 //  audiosink: pulsesink / autoaudiosink on Linux, wasapi2sink / wasapisink on Windows           //
+//  An audioresample sits between audioconvert and the tee: WASAPI sinks only accept the          //
+//  device's own sample rate (e.g. 96 kHz), and audioconvert doesn't change the rate.             //
 //                                                                                                //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -91,7 +93,7 @@ impl GstreamerBackend {
 
         // create gstreamer pipeline
         let pipeline_launch = format!(
-            "uridecodebin name=uridecodebin use-buffering=true buffer-duration=6000000000 ! audioconvert name=audioconvert ! tee name=tee ! queue ! {audiosink} name={AUDIOSINK}"
+            "uridecodebin name=uridecodebin use-buffering=true buffer-duration=6000000000 ! audioconvert name=audioconvert ! audioresample ! tee name=tee ! queue ! {audiosink} name={AUDIOSINK}"
         );
         let pipeline = gstreamer::parse::launch(&pipeline_launch)
             .expect("Unable to create gstreamer pipeline");
