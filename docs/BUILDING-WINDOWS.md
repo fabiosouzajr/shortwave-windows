@@ -19,10 +19,18 @@ editor tooling such as rust-analyzer.)
 ```powershell
 git clone <this repository> shortwave-windows
 cd shortwave-windows
-.\build-aux\windows\setup-msys2.ps1
+.\build-aux\windows\setup.ps1
 ```
 
-This updates MSYS2 and installs the UCRT64 packages: toolchain, Rust, Meson,
+`setup.ps1` is the guided way: it checks Windows, CPU, memory, disk space,
+internet access and conflicts (for example a broken `C:\msys64`), asks before
+installing MSYS2, Git or Inno Setup with winget, runs `setup-msys2.ps1`, and
+verifies the toolchain. Use `-CheckOnly` to only report, `-Yes` to accept every
+default, `-SkipUpdate` to skip the full `pacman -Syu`, and `-Msys2Root <path>`
+for a non-default MSYS2 location (pass the same flag to `build.ps1`).
+
+If MSYS2 is already installed you can run the package step alone:
+`.\build-aux\windows\setup-msys2.ps1`. This updates MSYS2 and installs the UCRT64 packages: toolchain, Rust, Meson,
 Ninja, GTK4, libadwaita, libshumate, GStreamer (base/good/bad/libav), SQLite,
 gettext, librsvg, the WebP pixbuf loader, glib-networking and ntldd. It is
 safe to re-run; add `-SkipUpdate` to skip the full `pacman -Syu`.

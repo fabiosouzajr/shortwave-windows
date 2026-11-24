@@ -7,6 +7,10 @@ upstream version it is based on; `-win.N` counts the port's own releases.
 ## [Unreleased]
 
 ### Added
+- `build-aux/windows/setup.ps1`: a guided setup for new contributors. It checks
+  Windows, memory, disk space and conflicts, asks before installing MSYS2, Git
+  or Inno Setup, installs the build packages and verifies the toolchain. See
+  [Building](docs/BUILDING-WINDOWS.md).
 - Releases are now published automatically: pushing a version tag builds and
   tests the app on Windows and Linux, then publishes the GitHub Release with
   the installer and the portable zip. It refuses to publish if the built files

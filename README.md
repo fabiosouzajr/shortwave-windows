@@ -56,11 +56,13 @@ information on how to join a language team, or even to create one, please see
 Shortwave builds natively on Windows with MSYS2 UCRT64 (GTK4, libadwaita, GStreamer).
 
 ```powershell
-.\build-aux\windows\setup-msys2.ps1   # install build dependencies (once)
+.\build-aux\windows\setup.ps1         # guided setup: checks your PC, installs MSYS2 and the build dependencies (once)
 .\build-aux\windows\build.ps1 -Run    # build and start the app
 .\build-aux\windows\bundle.ps1        # dist\Shortwave + portable zip
 .\build-aux\windows\installer.ps1     # Inno Setup installer (needs Inno Setup 6)
 ```
+
+New to the project? Run [build-aux/windows/setup.ps1](build-aux/windows/setup.ps1) first. It checks Windows, memory, disk space and conflicts, asks before installing anything, then runs `setup-msys2.ps1` (the non-interactive package installer CI uses). `-CheckOnly` just reports; `-Yes` accepts every default.
 
 Full instructions: [docs/BUILDING-WINDOWS.md](docs/BUILDING-WINDOWS.md). Design notes: [docs/PORTING.md](docs/PORTING.md).
 
