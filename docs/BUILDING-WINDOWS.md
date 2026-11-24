@@ -27,13 +27,34 @@ internet access and conflicts (for example a broken `C:\msys64`), asks before
 installing MSYS2, Git or Inno Setup with winget, runs `setup-msys2.ps1`, and
 verifies the toolchain. Use `-CheckOnly` to only report, `-Yes` to accept every
 default, `-SkipUpdate` to skip the full `pacman -Syu`, and `-Msys2Root <path>`
-for a non-default MSYS2 location (pass the same flag to `build.ps1`).
+for a non-default MSYS2 location (pass the same flag to `build.ps1`). It only
+installs MSYS2 itself to `C:\msys64`, because the winget package has no
+install-location option; for another folder, install MSYS2 yourself first.
 
 If MSYS2 is already installed you can run the package step alone:
-`.\build-aux\windows\setup-msys2.ps1`. This updates MSYS2 and installs the UCRT64 packages: toolchain, Rust, Meson,
-Ninja, GTK4, libadwaita, libshumate, GStreamer (base/good/bad/libav), SQLite,
-gettext, librsvg, the WebP pixbuf loader, glib-networking and ntldd. It is
-safe to re-run; add `-SkipUpdate` to skip the full `pacman -Syu`.
+`.\build-aux\windows\setup-msys2.ps1`. It updates MSYS2 and installs the UCRT64
+packages: toolchain, Rust, Meson, Ninja, GTK4, libadwaita, libshumate,
+GStreamer (base/good/bad/libav), SQLite, gettext, librsvg, the WebP pixbuf
+loader, glib-networking and ntldd. It is safe to re-run; add `-SkipUpdate` to
+skip the full `pacman -Syu`.
+
+### If PowerShell refuses to run the scripts
+
+A fresh Windows PowerShell 5.1 blocks local scripts ("running scripts is
+disabled on this system"), and a repository downloaded as a zip is also blocked
+by Mark-of-the-Web. Either run the script for this session only:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build-aux\windows\setup.ps1
+```
+
+or allow local scripts for your user once, and unblock a zip download:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+Get-ChildItem -Recurse . | Unblock-File
+```
+
 
 ## 2. Build
 

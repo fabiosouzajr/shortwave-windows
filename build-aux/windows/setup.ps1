@@ -58,6 +58,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# A relative -Msys2Root is resolved against the current PowerShell location, not the process directory.
+$Msys2Root = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Msys2Root)
+
 # Print errors as one readable line instead of a PowerShell stack trace.
 trap {
     Write-Host ("ERROR: " + $_.Exception.Message) -ForegroundColor Red
@@ -176,11 +179,7 @@ function Test-RepoPath {
 }
 
 function Test-Internet {
-    try {
-        [void][Net.Dns]::GetHostAddresses('github.com')
-    } catch {
-        return New-CheckResult 'Internet' 'Fail' 'cannot resolve github.com' 'Check your network, proxy or VPN; packages are downloaded during setup.'
-    }
+    # HTTP only (no separate DNS lookup): behind a proxy, local DNS may fail while downloads work.
     try {
         [void](Invoke-WebRequest -Uri 'https://repo.msys2.org' -Method Head -TimeoutSec 5 -UseBasicParsing)
     } catch {
@@ -189,7 +188,7 @@ function Test-Internet {
             return New-CheckResult 'Internet' 'Fail' 'cannot reach repo.msys2.org' 'The MSYS2 package server must be reachable (firewall, proxy or VPN?).'
         }
     }
-    New-CheckResult 'Internet' 'Pass' 'github.com and repo.msys2.org reachable'
+    New-CheckResult 'Internet' 'Pass' 'repo.msys2.org reachable'
 }
 
 function Test-Winget {
@@ -254,11 +253,9 @@ function Test-Conflicts {
 # --------------------------------------------------------------- actions
 
 function Install-WithWinget {
-    param([string]$Id, [string]$Name, [string]$Location)
+    param([string]$Id, [string]$Name)
     Write-Host "==> Installing $Name with winget ($Id)" -ForegroundColor Cyan
-    $wingetArgs = @('install', '--id', $Id, '-e', '--accept-package-agreements', '--accept-source-agreements', '--silent')
-    if ($Location) { $wingetArgs += @('--location', $Location) }
-    & winget @wingetArgs
+    & winget install --id $Id -e --accept-package-agreements --accept-source-agreements --silent
     if ($LASTEXITCODE -ne 0) { throw "winget could not install $Name (exit code $LASTEXITCODE). Install it manually and re-run this script." }
 }
 
@@ -354,11 +351,13 @@ if (($needMsys2 -or $needGit) -and -not (Get-Command winget -ErrorAction Silentl
 }
 
 if ($needMsys2) {
+    # The winget MSYS2 package always installs to C:\msys64 (it has no install-location option).
+    if ($Msys2Root.TrimEnd('\') -ne $DefaultMsys2Root) {
+        Stop-Setup "MSYS2 is not installed at $Msys2Root and winget can only install it to $DefaultMsys2Root. Install MSYS2 yourself to that folder (https://www.msys2.org) and re-run, or drop -Msys2Root to use $DefaultMsys2Root. Nothing was changed."
+    }
     if (Confirm-Continue "Install MSYS2 (about 400 MB) to $Msys2Root with winget?" $true) {
-        $location = $null
-        if ($Msys2Root.TrimEnd('\') -ne $DefaultMsys2Root) { $location = $Msys2Root }
-        Install-WithWinget -Id 'MSYS2.MSYS2' -Name 'MSYS2' -Location $location
-        if (-not (Test-Path $bashPath)) { Stop-Setup "MSYS2 was installed but $bashPath was not found. Pass -Msys2Root with its real location." }
+        Install-WithWinget -Id 'MSYS2.MSYS2' -Name 'MSYS2'
+        if (-not (Test-Path $bashPath)) { Stop-Setup "MSYS2 was installed but $bashPath was not found. Check the winget output above." }
     } else {
         Stop-Setup 'MSYS2 is required. Stopped. Nothing else was changed.'
     }

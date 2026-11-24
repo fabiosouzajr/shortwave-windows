@@ -62,7 +62,7 @@ Shortwave builds natively on Windows with MSYS2 UCRT64 (GTK4, libadwaita, GStrea
 .\build-aux\windows\installer.ps1     # Inno Setup installer (needs Inno Setup 6)
 ```
 
-New to the project? Run [build-aux/windows/setup.ps1](build-aux/windows/setup.ps1) first. It checks Windows, memory, disk space and conflicts, asks before installing anything, then runs `setup-msys2.ps1` (the non-interactive package installer CI uses). `-CheckOnly` just reports; `-Yes` accepts every default.
+New to the project? Run [build-aux/windows/setup.ps1](build-aux/windows/setup.ps1) first. It checks Windows, memory, disk space and conflicts, asks before installing anything, then runs `setup-msys2.ps1` (the non-interactive package installer CI uses). `-CheckOnly` just reports; `-Yes` accepts every default. If Windows says "running scripts is disabled", run it as `powershell -ExecutionPolicy Bypass -File .\build-aux\windows\setup.ps1` (see [the build docs](docs/BUILDING-WINDOWS.md#if-powershell-refuses-to-run-the-scripts)).
 
 Full instructions: [docs/BUILDING-WINDOWS.md](docs/BUILDING-WINDOWS.md). Design notes: [docs/PORTING.md](docs/PORTING.md).
 
