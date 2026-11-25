@@ -73,16 +73,17 @@ Full instructions: [docs/BUILDING-WINDOWS.md](docs/BUILDING-WINDOWS.md). Design 
 Releases are published by CI when a version tag is pushed. Versions are the upstream version plus `-win.N` for the port's own releases (e.g. `5.0.0-win.2`).
 
 1. Set the version in `meson.build`.
-2. Write the release notes in `docs/releases/<version>.md` (they become the GitHub Release text) and move the `Unreleased` entries in [CHANGELOG.md](CHANGELOG.md) under the new version.
-3. Commit and push to `main`.
-4. Tag and push the tag:
+2. Check the version's milestone and move open issues that won't make it to the next one.
+3. Write the release notes in `docs/releases/<version>.md` (they become the GitHub Release text; known issues cite their issue as `(#N)`) and move the `Unreleased` entries in [CHANGELOG.md](CHANGELOG.md) under the new version.
+4. Commit and push to `main`.
+5. Tag and push the tag:
 
    ```powershell
    git tag -a v5.0.0-win.2 -m "Shortwave for Windows 5.0.0-win.2"
    git push origin v5.0.0-win.2
    ```
 
-CI builds and tests on Windows and Linux, then publishes the release with the installer and the portable zip. It publishes nothing if the built files don't match the tag's version or the release notes are missing. Details: [docs/BUILDING-WINDOWS.md](docs/BUILDING-WINDOWS.md#releasing).
+CI builds and tests on Windows and Linux, then publishes the release with the installer and the portable zip. It publishes nothing if the built files don't match the tag's version or the release notes are missing. Once the release is published, close its milestone and create the next one. Details: [docs/BUILDING-WINDOWS.md](docs/BUILDING-WINDOWS.md#releasing).
 
 ## Code Of Conduct
 We follow the [GNOME Code of Conduct](https://conduct.gnome.org/). All

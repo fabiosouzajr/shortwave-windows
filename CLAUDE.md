@@ -78,21 +78,28 @@ when a `v<version>` tag is pushed. Don't build release files locally or run
   makes `5.0.0.2`) and the installer/zip names.
 - **Steps:**
   1. Set the version in `meson.build`.
-  2. Write `docs/releases/<version>.md` (the GitHub Release text, for people
-     downloading the app) and move the `## [Unreleased]` entries in
-     `CHANGELOG.md` under `## [<version>] - <date>`; update the link footer.
-  3. Commit and push to `main`.
-  4. `git tag -a v<version> -m "Shortwave for Windows <version>"` and
+  2. Check the `<version>` milestone; move open issues that won't make it to
+     the next milestone.
+  3. Write `docs/releases/<version>.md` (the GitHub Release text, for people
+     downloading the app; known issues cite their issue as `(#N)`) and move
+     the `## [Unreleased]` entries in `CHANGELOG.md` under
+     `## [<version>] - <date>`; update the link footer.
+  4. Commit and push to `main`.
+  5. `git tag -a v<version> -m "Shortwave for Windows <version>"` and
      `git push origin v<version>`.
-  5. Watch the tag's CI run (`gh run list`, `gh run watch`); the `release` job
+  6. Watch the tag's CI run (`gh run list`, `gh run watch`); the `release` job
      runs only after the Windows and Linux jobs pass.
+  7. Once published, close the milestone
+     (`gh api -X PATCH repos/fabiosouzajr/shortwave-windows/milestones/<number> -f state=closed`)
+     and create the next one.
 - **Guard rails:** `build-aux/publish-release.sh` refuses to publish if the
   installer/zip don't carry the tag's version or the notes file is missing.
   Test it with `bash build-aux/test-publish-release.sh`. If a tag run fails,
   fix it and ask the user before deleting and re-pushing the tag.
 - **Docs to keep honest:** known issues in the release notes must match the
   "Not working / not tested" table in `docs/WINDOWS-PORT-STATUS.md`; features
-  not yet checked in the running app are known issues, not highlights.
+  not yet checked in the running app are known issues, not highlights. Each
+  row of that table that needs work links its issue.
 - **Ask first:** pushing a tag publishes a public release (the repository is
   public). Never move or force-push an already pushed tag.
 - Full routine for people: README "Releasing" and

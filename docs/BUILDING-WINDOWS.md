@@ -111,11 +111,14 @@ Releases are published by CI when a `v<version>` tag is pushed:
 
 1. Set the new version in `meson.build` (e.g. `5.0.0-win.2`: upstream
    version, then `-win.N` for the port's own releases).
-2. Write the release notes in `docs/releases/<version>.md` (they become the
-   text of the GitHub Release) and move the `Unreleased` entries in
-   `CHANGELOG.md` under the new version and date.
-3. Commit and push to `main`.
-4. Tag and push the tag:
+2. Check the milestone named after the version and move open issues that
+   won't make it to the next milestone.
+3. Write the release notes in `docs/releases/<version>.md` (they become the
+   text of the GitHub Release; known issues cite their issue as `(#N)`) and
+   move the `Unreleased` entries in `CHANGELOG.md` under the new version and
+   date.
+4. Commit and push to `main`.
+5. Tag and push the tag:
 
    ```powershell
    git tag -a v5.0.0-win.2 -m "Shortwave for Windows 5.0.0-win.2"
@@ -128,6 +131,14 @@ the portable zip attached. It fails without publishing anything if the built
 files don't carry the tag's version or the release notes file is missing; fix
 it, then delete and re-push the tag. To check the script locally:
 `bash build-aux/test-publish-release.sh`.
+
+Once the release is published, close its milestone and create the next one:
+
+```powershell
+gh api repos/fabiosouzajr/shortwave-windows/milestones --jq '.[] | "\(.number) \(.title)"'
+gh api -X PATCH repos/fabiosouzajr/shortwave-windows/milestones/<number> -f state=closed
+gh api repos/fabiosouzajr/shortwave-windows/milestones -f title=<next version>
+```
 
 ## How the Windows build differs
 
