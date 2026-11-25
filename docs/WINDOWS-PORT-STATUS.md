@@ -1,9 +1,9 @@
 # Windows port: status
 
 State of the unofficial Windows port of Shortwave 5.0 on branch `main`
-(public repository `fabiosouzajr/shortwave-windows`), as of 2026-11-24,
+(public repository `fabiosouzajr/shortwave-windows`), as of 2026-11-25,
 release `5.0.0-win.2`. The verification checklist below was run on
-2026-11-20; features added after it are listed under "Not working / not
+2026-11-20 (the release-job row on 2026-11-24); features added after it are listed under "Not working / not
 tested" until they have been checked in the running app. Design:
 [PORTING.md](PORTING.md). Analysis: [re/](re/). Build instructions:
 [BUILDING-WINDOWS.md](BUILDING-WINDOWS.md). Changes per release:
