@@ -1,0 +1,26 @@
+name: Feature request
+description: Suggest something new or a change
+labels: [enhancement, needs-triage]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: What would you like to happen?
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Is this about Windows specifically?
+      description: Ideas for Shortwave in general are better proposed [upstream](https://gitlab.gnome.org/World/Shortwave/-/issues), where they can reach every platform.
+      options:
+        - Yes, Windows only
+        - No, it applies to Shortwave everywhere
+    validations:
+      required: true

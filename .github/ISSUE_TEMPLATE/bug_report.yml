@@ -1,0 +1,83 @@
+name: Bug report
+description: Something in the Windows build doesn't work or doesn't behave as you expect
+labels: [bug, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This tracker is for the **Windows port** of Shortwave. If the problem also happens in Shortwave on Linux, please report it [upstream](https://gitlab.gnome.org/World/Shortwave/-/issues) instead.
+
+        Please [search the existing issues](https://github.com/fabiosouzajr/shortwave-windows/issues?q=is%3Aissue) first.
+  - type: input
+    id: version
+    attributes:
+      label: Shortwave version
+      description: Shown in the About dialog (menu → About Shortwave).
+      placeholder: 5.0.0-win.1
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 24H2
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install it?
+      options:
+        - Installer (just for me)
+        - Installer (all users)
+        - Portable zip
+        - Built from source
+    validations:
+      required: true
+  - type: dropdown
+    id: linux
+    attributes:
+      label: Does it also happen in Shortwave on Linux?
+      options:
+        - Don't know
+        - No, only on Windows
+        - Yes, also on Linux
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. …
+        2. …
+        3. …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: input
+    id: station
+    attributes:
+      label: Station (if it's about one)
+      description: Name as shown in Shortwave, or the stream URL.
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Optional. Release builds don't write logs. To get them, build the development profile and run it with `RUST_LOG=shortwave=debug`; see [How I can get debug information?](https://github.com/fabiosouzajr/shortwave-windows#faq) in the README.
+      render: text
+    validations:
+      required: false

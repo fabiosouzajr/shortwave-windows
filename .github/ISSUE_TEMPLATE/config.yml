@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Problem also in Shortwave on Linux
+    url: https://gitlab.gnome.org/World/Shortwave/-/issues
+    about: Report it upstream, where the shared code is maintained.
+  - name: Security vulnerability
+    url: https://github.com/fabiosouzajr/shortwave-windows/security/advisories/new
+    about: Report privately, not as a public issue.
+  - name: Wrong or broken station data
+    url: https://www.radio-browser.info/
+    about: Station names, URLs and tags come from radio-browser.info.
+  - name: Questions
+    url: https://github.com/fabiosouzajr/shortwave-windows#faq
+    about: Check the FAQ first.
