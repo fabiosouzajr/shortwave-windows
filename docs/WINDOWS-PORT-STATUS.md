@@ -27,6 +27,7 @@ GitHub Actions. "Evidence" names what was observed, not what is expected.
 | Bundle runs on a clean machine | ✅ (PATH-stripped, agreed) | Relocated copy, only System32 on `PATH`, fresh GStreamer registry: 0 modules from `C:\msys64`, both stream types audible, UI/fonts/icons/translations fine. Windows Sandbox/VM test not done (agreed) |
 | Installer installs and uninstalls cleanly | ✅ per-user / ⚠️ per-machine | Silent per-user install: 1691 files, shortcut with AUMID, app runs from it; uninstall removes program, shortcut and uninstall entry, keeps user data. The per-machine path (UAC, firewall rule) was not run |
 | Repository published, work pushed | ✅ | Private during development (`windows-port` pushed to `origin`); made public on 2026-11-22 for the first release after a history scan for secrets found none: `gh repo view --json visibility` → `PUBLIC`, release page reachable without login (HTTP 200). Development is on `main` |
+| CI publishes a release when a version tag is pushed | ✅ | CI run 45453014882 for tag `v5.0.0-win.2`: Windows, Linux and `Publish release` jobs green; release "Shortwave for Windows 5.0.0-win.2" has `Shortwave-5.0.0-win.2-windows-x64-setup.exe` and `Shortwave-5.0.0-win.2-windows-x64.zip` |
 
 ## What works on Windows
 
@@ -61,7 +62,6 @@ in-app status):
 | Per-machine install + firewall rule | Untested (needs UAC) | [#4](https://github.com/fabiosouzajr/shortwave-windows/issues/4) |
 | Hardware media keys | Not pressed physically (SMTC path verified) | [#5](https://github.com/fabiosouzajr/shortwave-windows/issues/5) |
 | Windows Sandbox / VM clean test | Not done; PATH-stripped test used instead | — |
-| CI release job (`release`) | Script checks pass in the dry-run test and the workflow is accepted by GitHub (run 45045081441: `release` correctly skipped on a branch push). **Never run on a real tag**: artifact download, `gh release create` and permissions are unverified until the next tag | — |
 | Features added 2026-11-21/22 (see "What works") | Unit tests and builds pass; not yet recorded as checked in the running app: flag rendering, heart states, search filters and the country search, dropdown labels, language switch | [#9](https://github.com/fabiosouzajr/shortwave-windows/issues/9) |
 | Translations of the 2026-11-22 strings | Search filter, heart and "Station added" strings are untranslated in all languages | [#8](https://github.com/fabiosouzajr/shortwave-windows/issues/8) |
 | Dark theme switch | Light verified; libadwaita reports system colour-scheme support | [#10](https://github.com/fabiosouzajr/shortwave-windows/issues/10) |
