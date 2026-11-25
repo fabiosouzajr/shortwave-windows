@@ -13,7 +13,7 @@ body:
     attributes:
       label: Shortwave version
       description: Shown in the About dialog (menu → About Shortwave).
-      placeholder: 5.0.0-win.1
+      placeholder: 5.0.0-win.2
     validations:
       required: true
   - type: input

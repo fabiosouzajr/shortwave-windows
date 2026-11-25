@@ -59,7 +59,7 @@ and ask the reporter to use it. Don't discuss the details publicly.
 - Close issues from the fix: put `Fixes #N` in the commit message or pull
   request.
 - Give each fixed or planned issue the milestone of the next release (named
-  like the version, e.g. `5.0.0-win.2`).
+  like the version, e.g. `5.0.0-win.3`).
 - Known issues in the release notes cite their issue as `(#N)`.
 
 ## Code and builds

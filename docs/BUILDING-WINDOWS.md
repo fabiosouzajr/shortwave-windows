@@ -135,7 +135,7 @@ it, then delete and re-push the tag. To check the script locally:
 Once the release is published, close its milestone and create the next one:
 
 ```powershell
-gh api repos/fabiosouzajr/shortwave-windows/milestones --jq '.[] | "\(.number) \(.title)"'
+gh api repos/fabiosouzajr/shortwave-windows/milestones --jq '.[] | [.number, .title] | @tsv'
 gh api -X PATCH repos/fabiosouzajr/shortwave-windows/milestones/<number> -f state=closed
 gh api repos/fabiosouzajr/shortwave-windows/milestones -f title=<next version>
 ```
