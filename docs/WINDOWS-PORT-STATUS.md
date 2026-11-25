@@ -53,20 +53,20 @@ in-app status):
 
 ## Not working / not tested
 
-| Item | Status |
-|---|---|
-| Station map | Hidden on Windows (libshumate never requests tiles in this dialog); a "Location" row links to openstreetmap.org instead |
-| Toast buttons (Save Track / Don't Record) | Shown, translated; **clicking them is unverified**: the live toast timed out before the test click, and a click in the Notification Centre relaunches the app instead of running the action |
-| Chromecast end-to-end | Untested (no device) |
-| Per-machine install + firewall rule | Untested (needs UAC) |
-| Hardware media keys | Not pressed physically (SMTC path verified) |
-| Windows Sandbox / VM clean test | Not done; PATH-stripped test used instead |
-| CI release job (`release`) | Script checks pass in the dry-run test and the workflow is accepted by GitHub (run 45045081441: `release` correctly skipped on a branch push). **Never run on a real tag**: artifact download, `gh release create` and permissions are unverified until the next tag |
-| Features added 2026-11-21/22 (see "What works") | Unit tests and builds pass; not yet recorded as checked in the running app: flag rendering, heart states, search filters and the country search, dropdown labels, language switch |
-| Translations of the 2026-11-22 strings | Search filter, heart and "Station added" strings are untranslated in all languages |
-| Dark theme switch | Light verified; libadwaita reports system colour-scheme support |
-| System proxy | GIO proxy modules aren't bundled; `http_proxy`-style environment variables only |
-| Translations of the new strings | "Show Window", "Hide Window", "Quit", "Location" appear in English where upstream has no translation |
+| Item | Status | Issue |
+|---|---|---|
+| Station map | Hidden on Windows (libshumate never requests tiles in this dialog); a "Location" row links to openstreetmap.org instead | [#3](https://github.com/fabiosouzajr/shortwave-windows/issues/3) |
+| Toast buttons (Save Track / Don't Record) | Shown, translated; **clicking them is unverified**: the live toast timed out before the test click, and a click in the Notification Centre relaunches the app instead of running the action | [#7](https://github.com/fabiosouzajr/shortwave-windows/issues/7) |
+| Chromecast end-to-end | Untested (no device) | [#11](https://github.com/fabiosouzajr/shortwave-windows/issues/11) |
+| Per-machine install + firewall rule | Untested (needs UAC) | [#4](https://github.com/fabiosouzajr/shortwave-windows/issues/4) |
+| Hardware media keys | Not pressed physically (SMTC path verified) | [#5](https://github.com/fabiosouzajr/shortwave-windows/issues/5) |
+| Windows Sandbox / VM clean test | Not done; PATH-stripped test used instead | — |
+| CI release job (`release`) | Script checks pass in the dry-run test and the workflow is accepted by GitHub (run 45045081441: `release` correctly skipped on a branch push). **Never run on a real tag**: artifact download, `gh release create` and permissions are unverified until the next tag | — |
+| Features added 2026-11-21/22 (see "What works") | Unit tests and builds pass; not yet recorded as checked in the running app: flag rendering, heart states, search filters and the country search, dropdown labels, language switch | [#9](https://github.com/fabiosouzajr/shortwave-windows/issues/9) |
+| Translations of the 2026-11-22 strings | Search filter, heart and "Station added" strings are untranslated in all languages | [#8](https://github.com/fabiosouzajr/shortwave-windows/issues/8) |
+| Dark theme switch | Light verified; libadwaita reports system colour-scheme support | [#10](https://github.com/fabiosouzajr/shortwave-windows/issues/10) |
+| System proxy | GIO proxy modules aren't bundled; `http_proxy`-style environment variables only | [#6](https://github.com/fabiosouzajr/shortwave-windows/issues/6) |
+| Translations of the new strings | "Show Window", "Hide Window", "Quit", "Location" appear in English where upstream has no translation | [#8](https://github.com/fabiosouzajr/shortwave-windows/issues/8) |
 
 ## Known issues
 
