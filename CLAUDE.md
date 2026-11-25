@@ -79,17 +79,25 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 2. **Issue:** draft it (summary, repro, expected/actual, root cause, fix, out
    of scope) and show it to the user before `gh issue create --body-file`.
 3. **Fix** on a `fix/<topic>` branch: make the test pass, then run
-   `cargo clippy --locked && cargo test --locked`. Clippy should show only the
-   17 known upstream warnings. Add a CHANGELOG `### Fixed` entry under
+   `cargo clippy --locked && cargo test --locked`. Clippy should show no
+   warnings beyond the ones `main` already has (all in upstream code; compare
+   against `main`, and see "Known issues" in `docs/WINDOWS-PORT-STATUS.md`).
+   Add a CHANGELOG `### Fixed` entry under
    `[Unreleased]` that links the issue. Update `docs/WINDOWS-PORT-STATUS.md`
    only if the fix changes what it says, and don't mark a fix as verified in
    the app unless it was checked there.
 4. **Commit** with "Fixes #N" in the message, push the branch and open a PR
    (`gh pr create --body-file`) that lists what was and wasn't verified.
 
-Running tests from PowerShell (`source /etc/profile` changes the directory,
-so `cd` after it):
-`C:\msys64\usr\bin\bash.exe -lc 'export MSYSTEM=UCRT64; source /etc/profile; cd /d/git/shortwave-windows && export CARGO_HOME=$PWD/_build/cargo-home; cargo test --locked'`
+Running tests from PowerShell, in the repository folder (`CHERE_INVOKING` keeps
+the current directory; the login shell already reads `/etc/profile`, and
+sourcing it again would `cd` to the home folder):
+
+```powershell
+$env:CHERE_INVOKING = '1'; $env:MSYSTEM = 'UCRT64'
+C:\msys64\usr\bin\bash.exe -lc 'export CARGO_HOME=$PWD/_build/cargo-home; cargo test --locked'
+Remove-Item Env:CHERE_INVOKING, Env:MSYSTEM
+```
 
 For multi-line commit messages, write the message to a file and use
 `git commit -F <file>`. PowerShell doesn't pipe a here-string into `-F -`.
