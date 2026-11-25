@@ -46,6 +46,9 @@ That's why we decided to call the project 'Shortwave', because internet radio st
 
     Release builds have no console window. Build with `.\build-aux\windows\build.ps1 -BuildProfile development` (debug builds keep the console) and run it with `RUST_BACKTRACE=1` and `RUST_LOG=shortwave=debug` set.
 
+## Reporting issues
+Report problems with the Windows build in this repository's [Issues](https://github.com/fabiosouzajr/shortwave-windows/issues), using the bug report or feature request form. If a problem also happens in Shortwave on Linux, report it [upstream](https://gitlab.gnome.org/World/Shortwave/-/issues). Report security issues privately, see [SECURITY.md](SECURITY.md). How issues are handled: [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Translations
 Translation of this project takes place on the GNOME translation platform,
 [Damned Lies](https://l10n.gnome.org/module/shortwave). For further
