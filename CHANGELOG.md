@@ -6,13 +6,15 @@ upstream version it is based on; `-win.N` counts the port's own releases.
 
 ## [Unreleased]
 
+### Added
+- Issue forms for bug reports and feature requests, a security policy and
+  contributing notes. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## [5.0.0-win.2] - 2026-11-24
 
 Based on Shortwave 5.0.0.
 
 ### Added
-- Issue forms for bug reports and feature requests, a security policy and
-  contributing notes. See [CONTRIBUTING.md](CONTRIBUTING.md).
 - `build-aux/windows/setup.ps1`: a guided setup for new contributors. It checks
   Windows, memory, disk space and conflicts, asks before installing MSYS2, Git
   or Inno Setup, installs the build packages and verifies the toolchain. See
