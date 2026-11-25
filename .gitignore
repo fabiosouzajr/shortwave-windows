@@ -1,3 +1,4 @@
+# --- Debian packaging files ---
 debian/shortwave/
 debian/.debhelper/
 debian/debhelper-build-stamp
@@ -9,6 +10,8 @@ debian/shortwave.substvars
 target/
 target
 **/*.rs.bk
+
+# --- Build artifacts ---
 _build
 build/
 dist
@@ -17,6 +20,9 @@ de.haeckerfelix.gradio.json~
 de.haeckerfelix.GradioDevel.json~
 de.haeckerfelix.ShortwaveDevel.json~
 de.haeckerfelix.Shortwave.json~
+
+# --- Backup files ---
+*.bak
 *.ui~
 .ui~
 ./.cargo
@@ -27,6 +33,9 @@ resources.gresource
 *.gresource
 tags.*
 wip
+
+# --- IDE files ---
+.idea/
 src/config.rs
 src/static_resource.rs
 /_build/
