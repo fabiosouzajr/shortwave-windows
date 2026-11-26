@@ -80,6 +80,16 @@ function Invoke-Msys([string]$Command) {
 $b = ConvertTo-MesonPath $BuildDir
 $p = ConvertTo-MesonPath $Prefix
 
+# Meson stores absolute paths in the build directory, so one configured before
+# the repository was moved (or its drive letter changed) has to be wiped.
+$info = Join-Path $buildPath 'meson-info\meson-info.json'
+$fullBuildPath = ConvertTo-MesonPath ([IO.Path]::GetFullPath($buildPath).TrimEnd('\'))
+if ((Test-Path $info) -and
+    (Get-Content $info -Raw | ConvertFrom-Json).directories.build -ne $fullBuildPath) {
+    Write-Host "==> $BuildDir was configured at another location, wiping it"
+    $Reconfigure = $true
+}
+
 if ($Reconfigure -and (Test-Path $buildPath)) {
     Invoke-Msys "meson setup --wipe '$b' -Dprofile=$BuildProfile --prefix='$p'"
 } elseif (-not (Test-Path (Join-Path $buildPath 'build.ninja'))) {
